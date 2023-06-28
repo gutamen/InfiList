@@ -82,47 +82,20 @@ section .data
 
 section .bss
     
-    arquivo : resq 1
-    argv    : resq 1
-    argc    : resq 1
+    potenciaBloco           : resb 1 
+    ponteiroRaiz            : resq 1
+    ponteiroBlocosLimpos    : resq 1
+    tamanhoArmazenamento    : resq 1
+    quantidadeBlocos        : resb 6
+
+
+
+    ponteiroArquivo : resq 1
+    argv            : resq 1
+    argc            : resq 1
   
 
-    disassemble       	: resb 3		; offset 0
-    OEMIdentifier     	: resb 8		; offset 3
-    bytesPerSector    	: resb 2  	; offset 11
-    sectorsPerCluster 	: resb 1  	; offset 13
-    reservedSectors   	: resb 2  	; offset 14
-    FATNumber         	: resb 1  	; offset 16
-    directoryEntries  	: resb 2		; offset 17
-    totalSectors      	: resb 2		; offset 19
-    mediaDescriptor   	: resb 1  	; offset 21
-    sectorsPerFAT     	: resb 2  	; offset 22
-    sectorsPerTrack  	: resb 2  	; offset 24
-    headsOfStorage   	: resb 2  	; offset 26
-    hiddenSectors     	: resb 4		; offset 28
-	largeTotalSectors 	: resb 4  	; offset 32
-
-    rootDirectoryInit 	: resq 1  ; posição no arquivo
-    dataClustersInit  	: resq 1  ; posição dos dados
-    firstFATTable     	: resq 1  ; posição da primeira FAT
-    readNow	          	: resq 1  ; qual arquivo está sendo lido
-	stackPointerRead 	: resq 1  ; salvar onde estava a pilha no começo da leitura do diretório
 	
-	totalEntrances	  	: resq 1  ; entradas no diretório lido
-	clusterSize	      	: resq 1  ; quantos bytes tem por cluster
-	clusterCount	  		: resq 1
-	clustersPointer	  	: resq 1
-	bus				  		: resb 1
-	fileSize		  			: resq 1
-	suClusterPointer  	: resq 1
-	
-	commandType		: resb 1
-	longI             		: resq 1
-
-	searcher		  	: resb 128; leitor do terminal
-	tempSearcher	: resb 128; reorganizar string lida
-	
-	sizedChars		: resb 32
 section .text
 
     global _start
@@ -136,7 +109,109 @@ _start:
 	syscall
 
 _end:
-mov rax, _exit
-  mov rdi, 0
-  syscall
+    mov rax, _exit
+    mov rdi, 0
+    syscall
+
+
+
+
+
+formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+	
+    push rbp
+	mov rbp, rsp
+
+    cmp rsi, 7
+    jg blocoSuperiorLimite
+    
+    mov r13, rdi
+    mov r14, rsi
+    mov r15, rdx
+    
+
+    mov rax, _open
+    ;mov rdi, rdi
+    mov rsi, readwrite
+    mov rdx, userWR
+    syscall
+
+    
+    sub rsp, 8
+    and [rbp-8], 0
+
+    cmp rax, 0
+    jle naoAbriu 
+    mov [rbp-8], rax        ; Armazena o ponteiro para o arquivo
+
+    sub rsp, 8
+    and [rbp-16], 0
+    mov rax, 512
+    shl rax, r14b 
+    mov [rbp-16], rax       ; Armazena o tamanho do bloco
+    
+    mov rax, _seek
+    mov rdi, [rbp-8]
+    xor rsi, rsi
+    xor rdx, rdx
+    syscall
+
+    mov rax, _write
+    mov rdi, [rbp-8]
+    mov rsi, r14
+    mov rdx, 1
+    syscall
+
+    mov rax, _write
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-16]
+    mov rdx, 8
+    syscall
+
+    mov rax, _write
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-16]
+    shl rsi, 1
+    mov rdx, 8
+    syscall
+    
+    mov rax, r14
+    mul QWORD[rbp-16]
+    
+    mov rsi, rax
+    mov rax, _write
+    mov rdi, [rbp-8]
+    mov rdx, 8
+    syscall
+
+
+    mov rax, _write
+    mov rdi, [rbp-8]
+    mov rsi, r15d
+    mov rdx, 4
+    syscall
+
+    mov rax, _write
+    mov rdi, [rbp-8]
+    mov rsi, r15
+    shr rsi, 32
+    mov rdx, 2
+    syscall
+
+
+
+
+    blocoSuperiorLimite:
+    naoAbriu:
+
+    mov rsp, rbp
+	pop rbp
+	ret
+
+
+
+
+
+
+
 
