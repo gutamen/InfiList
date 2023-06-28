@@ -80,7 +80,7 @@ section .data
 	
 	beep			: db 0x07, 0
 
-    finalBlocos     : dq 0xffffffffffffffff
+    finalBlocos     : dq 0xffffffffffffffff, 0
 
 section .bss
     
@@ -145,6 +145,9 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
     cmp rsi, 7
     jg blocoSuperiorLimite
     
+    cmp rdx, 10
+    jl quantiadeBlocoMinima
+
     mov r13, rdi
     mov r14, rsi
     mov r15, rdx
@@ -279,6 +282,7 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
     mov rdi, [rbp-8]
     syscall
 
+    quantiadeBlocoMinima:
     blocoSuperiorLimite:
     naoAbriu:
 
