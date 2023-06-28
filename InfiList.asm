@@ -198,6 +198,18 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
     mov rdx, 2
     syscall
 
+    mov rax, [rbp-16]
+    mov rsi, 3
+    mul rsi
+    mov rsi, rax
+    mov rax, _seek
+    mov rdi, [rbp-8]
+    xor rdx, rdx
+    syscall
+
+    sub r15, 2
+    lacoCriaListaBlocosVagos:
+        
 
 
 
