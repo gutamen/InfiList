@@ -80,6 +80,8 @@ section .data
 	
 	beep			: db 0x07, 0
 
+    finalBlocos     : dq 0xffffffffffffffff
+
 section .bss
     
     potenciaBloco           : resb 1 
@@ -93,7 +95,7 @@ section .bss
     ponteiroArquivo : resq 1
     argv            : resq 1
     argc            : resq 1
-  
+    buffer          : resq 1  
 
 	
 section .text
@@ -107,6 +109,24 @@ _start:
 	lea rsi, [beep]
 	mov rdx, 1
 	syscall
+
+    mov r8, [rsp]
+	mov [argv], r8
+	cmp QWORD[argv], 2        ; Verifica a quantidade de argumentos
+	jne _end
+  
+	mov r8, rsp
+	add r8, 16
+	mov r9, [r8]
+	mov [argc], r9              ; Salvando endereço do argumento em variável
+
+
+    %include "pushall.asm"
+    mov rdi, [argc]
+    mov rsi, 0
+    mov rdx, 10
+    call formatacao             ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+    %include "popall.asm"
 
 _end:
     mov rax, _exit
@@ -138,17 +158,18 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
 
     
     sub rsp, 8
-    and [rbp-8], 0
+    and QWORD[rbp-8], 0
 
     cmp rax, 0
     jle naoAbriu 
-    mov [rbp-8], rax        ; Armazena o ponteiro para o arquivo
+    mov [rbp-8], rax            ; Armazena o ponteiro para o arquivo
 
     sub rsp, 8
-    and [rbp-16], 0
+    and QWORD[rbp-16], 0
     mov rax, 512
-    shl rax, r14b 
-    mov [rbp-16], rax       ; Armazena o tamanho do bloco
+    mov cl, r14b
+    shl rax, cl 
+    mov [rbp-16], rax           ; Armazena o tamanho do bloco
     
     mov rax, _seek
     mov rdi, [rbp-8]
@@ -158,48 +179,55 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
 
     mov rax, _write
     mov rdi, [rbp-8]
-    mov rsi, r14
+    mov [buffer], r14           ; Armazena no dispositivo a potência que define o bloco
+    lea rsi, [buffer]
     mov rdx, 1
     syscall
 
     mov rax, _write
     mov rdi, [rbp-8]
-    mov rsi, [rbp-16]
+    lea rsi, [rbp-16]           ; Armazena no dispositivo o ponteiro para o diretório raiz
     mov rdx, 8
     syscall
 
     mov rax, _write
     mov rdi, [rbp-8]
-    mov rsi, [rbp-16]
+    mov rsi, [rbp-16]           ; Armazena no dispositivo o ponteiro para lista de blocos livres
     shl rsi, 1
+    mov [buffer], rsi
+    lea rsi, [buffer]
     mov rdx, 8
     syscall
     
-    mov rax, r14
+    mov rax, r15
     mul QWORD[rbp-16]
     
     mov rsi, rax
+    mov [buffer], rsi
+    lea rsi, [buffer]
     mov rax, _write
-    mov rdi, [rbp-8]
+    mov rdi, [rbp-8]            ; Armazena no dispositivo o tamanho real do armazenamento 
     mov rdx, 8
     syscall
 
 
     mov rax, _write
     mov rdi, [rbp-8]
-    mov rsi, r15d
+    mov [buffer], r15d               ; armazenamento da quantidade de blocos formatadas no dispositivo
+    lea rsi, [buffer]
     mov rdx, 4
     syscall
-
     mov rax, _write
     mov rdi, [rbp-8]
-    mov rsi, r15
+    mov [buffer], r15
+    lea rsi, [buffer]
     shr rsi, 32
     mov rdx, 2
     syscall
 
+
     mov rax, [rbp-16]
-    mov rsi, 3
+    mov rsi, 2
     mul rsi
     mov rsi, rax
     mov rax, _seek
@@ -209,6 +237,8 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
 
     ;sub r15, 2
 	mov r14, 2
+    dec r15
+
     lacoCriaListaBlocosVagos:
         
 		mov rax, _seek
@@ -218,17 +248,37 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
 		sub rsi, 8
 		syscall
 	
-		inc r14
+        inc r14		
 		mov rax, [rbp-16]
 		mul r14
-		mov rsi, rax
+		mov [buffer], rax
 		mov rax, _write
 		mov rdi, [rbp-8]
+        lea rsi, [buffer]
 		mov rdx, 8
 		syscall
+
 		cmp r14, r15
 		jne lacoCriaListaBlocosVagos
-		
+	
+
+	mov rax, _seek
+	mov rdi, [rbp-8]
+	mov rdx, 1
+	mov rsi, [rbp-16]
+	sub rsi, 8
+	syscall
+
+	mov rax, _write
+	mov rdi, [rbp-8]
+    lea rsi, [finalBlocos] 
+	mov rdx, 8
+	syscall
+
+    mov rax, _close
+    mov rdi, [rbp-8]
+    syscall
+
     blocoSuperiorLimite:
     naoAbriu:
 
