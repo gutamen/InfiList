@@ -125,7 +125,7 @@ _start:
     mov rdi, [argc]
     mov rsi, 0
     mov rdx, 10
-    call formatacao             ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+    call formatacao             ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
     %include "popall.asm"
 
 _end:
@@ -137,7 +137,7 @@ _end:
 
 
 
-formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+formatacao: ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
 	
     push rbp
 	mov rbp, rsp
@@ -285,12 +285,81 @@ formatacao: ;int formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int 
     quantiadeBlocoMinima:
     blocoSuperiorLimite:
     naoAbriu:
+    
 
+    xor rax, rax        ; retorno de status sem erro
     mov rsp, rbp
 	pop rbp
 	ret
 
+iniciarSistema:     ; void iniciarSistema(long *dispositivo[rdi])
+    push rbp
+	mov rbp, rsp
 
+    mov rax, _open
+    ;mov rdi, rdi
+    mov rsi, readwrite
+    mov rdx, userWR
+    syscall
+
+    cmp rax, 0
+    jle naoIniciouSistema
+    
+    sub rsp, 32
+    mov [rbp-8], rax            ; Salva ponteiro para o arquivo
+    
+
+
+    mov rax, _read
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-16]           
+    mov rdx, 1
+    syscall                     ; Lê a pontência do bloco 
+
+    mov cl, [rbp-16]
+    and [rbp-16], 0
+    mov rax, 512
+    shl rax, cl
+    mov [rbp-16], rax           ; Armazena tamanho dos setores
+
+    mov rax, _read
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-24]           
+    mov rdx, 8
+    syscall                     ; Armazena o ponteiro para o diretório raiz
+
+
+    mov rax, _read
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-32]
+    mov rdx, 8
+    syscall                     ; Armazena o ponteiro para os blocos livres
+
+    sub rsp, [rbp-16]
+
+    mov rax, _seek
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-24]
+    xor rdx, rdx
+    syscall                     ; Posiciona o ponteiro no início do diretório raiz
+
+
+    mov rax, _read
+    mov rdi, [rbp-8]
+    mov r9, [rbp-16]
+    add r9, 32
+    mov rsi [rbp-r9]
+    mov rdx, [rbp-16]
+    syscall                     ; Coloca o bloco do diretório na pilha da memória
+
+
+
+
+    naoIniciouSistema:
+
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 
