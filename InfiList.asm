@@ -84,7 +84,7 @@ section .data
 
 section .bss
     
-    potenciaBloco           : resb 1 
+    tamanhoBloco            : resb 1 
     ponteiroRaiz            : resq 1
     ponteiroBlocosLimpos    : resq 1
     tamanhoArmazenamento    : resq 1
@@ -292,9 +292,17 @@ formatacao: ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi],
 	pop rbp
 	ret
 
-iniciarSistema:     ; void iniciarSistema(long *dispositivo[rdi])
+iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
     push rbp
 	mov rbp, rsp
+    
+    sub rsp, 40
+    mov [rbp-8], rsi
+    mov [rbp-16], rdx
+    mov [rbp-24], rcx
+    mov [rbp-32], r8
+    mov [rbp-40], r9
+
 
     mov rax, _open
     ;mov rdi, rdi
@@ -305,54 +313,41 @@ iniciarSistema:     ; void iniciarSistema(long *dispositivo[rdi])
     cmp rax, 0
     jle naoIniciouSistema
     
-    sub rsp, 32
-    mov [rbp-8], rax            ; Salva ponteiro para o arquivo
+    sub rsp, 8
+    mov [rbp-48], rax            ; Salva ponteiro para o arquivo
     
 
 
     mov rax, _read
-    mov rdi, [rbp-8]
-    mov rsi, [rbp-16]           
+    mov rdi, [rbp-48]
+    mov r15, [rbp-8]
+    mov rsi, [r15]
     mov rdx, 1
     syscall                     ; Lê a pontência do bloco 
 
-    mov cl, [rbp-16]
-    and [rbp-16], 0
+    ;mov r15, [rbp-8]
+    mov cl, [r15]
+    and [r15], 0
     mov rax, 512
     shl rax, cl
-    mov [rbp-16], rax           ; Armazena tamanho dos setores
+    mov [r15], rax           ; Armazena tamanho dos setores
 
     mov rax, _read
-    mov rdi, [rbp-8]
-    mov rsi, [rbp-24]           
+    mov rdi, [rbp-48]
+    mov r15, [rbp-24]
+    mov rsi, [r15]           
     mov rdx, 8
     syscall                     ; Armazena o ponteiro para o diretório raiz
 
 
     mov rax, _read
-    mov rdi, [rbp-8]
-    mov rsi, [rbp-32]
+    mov rdi, [rbp-48]
+    mov r15, [rbp-32]
+    mov rsi, [r15]
     mov rdx, 8
     syscall                     ; Armazena o ponteiro para os blocos livres
 
     sub rsp, [rbp-16]
-
-    mov rax, _seek
-    mov rdi, [rbp-8]
-    mov rsi, [rbp-24]
-    xor rdx, rdx
-    syscall                     ; Posiciona o ponteiro no início do diretório raiz
-
-
-    mov rax, _read
-    mov rdi, [rbp-8]
-    mov r9, [rbp-16]
-    add r9, 32
-    mov rsi [rbp-r9]
-    mov rdx, [rbp-16]
-    syscall                     ; Coloca o bloco do diretório na pilha da memória
-
-
 
 
     naoIniciouSistema:
@@ -360,8 +355,15 @@ iniciarSistema:     ; void iniciarSistema(long *dispositivo[rdi])
     mov rsp, rbp
     pop rbp
     ret
+    
+    
+exibeDiretorio:
+    push rbp
+	mov rbp, rsp    
 
-
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 
