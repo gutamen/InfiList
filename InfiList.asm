@@ -128,6 +128,19 @@ _start:
     call formatacao             ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
     %include "popall.asm"
 
+
+    %include "pushall.asm"
+    mov rdi, [argc]
+    lea rsi, [tamanhoBloco]
+    lea rdx, [ponteiroRaiz]
+    lea rcx, [ponteiroBlocosLimpos]
+    lea r8, [tamanhoArmazenamento]
+    lea r9, [quantidadeBlocos]
+    call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
+    mov [ponteiroArquivo], rax
+    %include "popall.asm"
+
+
 _end:
     mov rax, _exit
     mov rdi, 0
@@ -334,7 +347,7 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
 
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-24]
+    mov r15, [rbp-16]
     mov rsi, [r15]           
     mov rdx, 8
     syscall                     ; Armazena o ponteiro para o diretório raiz
@@ -342,15 +355,36 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
 
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-32]
+    mov r15, [rbp-24]
     mov rsi, [r15]
     mov rdx, 8
     syscall                     ; Armazena o ponteiro para os blocos livres
 
-    sub rsp, [rbp-16]
+    mov rax, _read
+    mov rdi, [rbp-48]
+    mov r15, [rbp-32]
+    mov rsi, [r15]
+    mov rdx, 8
+    syscall                     ; Armazena o tamanho do dispositivo
+    
+    
+    mov rax, _read
+    mov rdi, [rbp-48]
+    mov r15, [rbp-40]
+    mov rsi, [r15]
+    mov rdx, 6
+    syscall                     ; Armazena a quantidade de blocos
+    
 
+    mov rax, [rbp-48]           ; Retorno do ponteiro do arquivo  
 
+    mov rsp, rbp
+    pop rbp
+    ret
+    
     naoIniciouSistema:
+    xor rax, rax
+    dec rax
 
     mov rsp, rbp
     pop rbp
