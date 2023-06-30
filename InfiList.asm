@@ -44,10 +44,10 @@ section .data
 	
 	jumpLine : db 10, 0 
 	
-	clearTerm   : db   27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
-	clearTermL : equ  $-clearTerm         ; tamanho da string para limpar terminal
+	limpaTerminal       : db   27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
+	limpaTerminalL      : equ  $-clearTerm         ; tamanho da string para limpar terminal
 	
-	dotChar : db 0x2e, 0
+	caracterPonto : db 0x2e, 0
 
 	tabChar	: db 0x09, 0
 	
@@ -90,7 +90,8 @@ section .bss
     tamanhoArmazenamento    : resq 1
     quantidadeBlocos        : resb 6
 
-
+    ponteiroDiretorioAtual  : resq 1
+    tamanhoDiretorioAtual   : resq 1
 
     ponteiroArquivo : resq 1
     argv            : resq 1
@@ -139,6 +140,8 @@ _start:
     call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
     mov [ponteiroArquivo], rax
     %include "popall.asm"
+
+
 
 
 _end:
@@ -387,13 +390,211 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     ret
     
     
-exibeDiretorio:
+carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha
     push rbp
 	mov rbp, rsp    
+    
+    sub rsp, 32
+    mov [rbp-8], rdi
+    mov [rbp-16], rsi
+    mov [rbp-24], rdx
+    mov [rbp-32], rcx
+
+
+
+    cmp rsi, 0
+    je carregaRoot
+
+    cmp rsi, 1
+    je carregaSubdiretorio 
+    
+
+    carregaRoot:
+        sub rsp, [rbp-32]
+        mov rax, _seek
+        mov rdi, [rbp-8]
+        mov rsi, [ponteiroRaiz]             ; Utiliza o ponteiro para o bloco raiz para acessá-lo DADO EXTERNO
+        xor rdx, rdx
+        syscall
+
+        mov rax, _read
+        mov rdi, [rbp-8]
+        mov r8, [rbp-32]
+        add r8, 32
+        mov rsi, [rbp-r8]
+        mov rdx, [rbp-32]
+        syscall                             ; Armazena o bloco na pilha
+        
+        mov [ponteiroDiretorioAtual], rsp   ; Altera o ponteiro para a pilha com o diretório carregado
+        mov r10, [tamanhoBloco]
+        mov [tamanhoDiretorioAtual], r10    ; Altera o tamanho do diretório atual
+        mov rsp, rbp
+        pop rbp
+        ret
+
+
+    carregaSubdiretorio:
+        mov rax, _seek
+        mov rdi, [rbp-8]
+        mov rsi, [rbp-24]
+        xor rdx, rdx
+        syscall
+
+        and QWORD[tamanhoDiretorioAtual], 0
+
+        mov rcx, [rbp-32]
+        sub rcx, 64
+        sub rsp, rcx
+        
+        add [tamanhoDiretorioAtual], rcx
+
+        mov rdx, rcx
+        mov rax, _read
+        mov rdi, [rbp-8]
+        add rcx, 32
+        mov rsi, [rbp-rcx]
+        syscall                                 ; Lê as entradas do subdiretório
+
+        mov rax, _seek
+        mov rdi, [rbp-8]
+        mov rsi, 56
+        mov rdx, 1
+        syscall                                 ; Avança até o ponto em que fica o ponteiro
+
+        mov rax, _read
+        mov rdi, [rbp-8]
+        lea rsi, [buffer]
+        mov rdx, 8
+        syscall                                 ; Lê o ponteiro para próximo bloco
+
+        cmp QWORD[buffer], -1
+        jne lacoLeituraDiretorio
+        jmp fimLeituraDiretorio
+
+        lacoLeituraDiretorio:
+            mov rax, _seek
+            mov rdi, [rbp-8]
+            mov rsi, [buffer]
+            xor rdx, rdx
+            syscall
+
+            mov rcx, [rbp-32]
+            sub rcx, 64
+            sub rsp, rcx
+            add [tamanhoDiretorioAtual], rcx
+
+            mov rdx, rcx
+            mov rax, _read
+            mov rdi, [rbp-8]
+            mov rcx, [tamanhoDiretorioAtual]
+            add rcx, 32
+            mov rsi, [rbp-rcx]
+            syscall                                 ; Lê as entradas do subdiretório
+
+            mov rax, _seek
+            mov rdi, [rbp-8]
+            mov rsi, 56
+            mov rdx, 1
+            syscall                                 ; Avança até o ponto em que fica o ponteiro
+
+            mov rax, _read
+            mov rdi, [rbp-8]
+            lea rsi, [buffer]
+            mov rdx, 8
+            syscall                                 ; Lê o ponteiro para próximo bloco
+
+            cmp QWORD[buffer], -1
+            jne lacoLeituraDiretorio
+    
+    fimLeituraDiretorio:
+    mov [ponteiroDiretorioAtual], rsp   ; Altera o ponteiro para a pilha com o diretório carregado
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
+imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorio[rdi], long *tamanhoDiretorio[rsi])
+    push rbp
+    mov rbp, rsp  
+    
+    sub rsp, 16    
+    mov [rbp-8], rdi
+    mov [rbp-16], rsi
+
+    xor r15, r15
+
+   	mov rax, _write
+	mov rdi, 1
+	lea rsi, [limpaTerminal]		
+	mov rdx, limpaTerminalL
+	syscall                     ; "Limpa" o terminal do programa
+
+    lacoImpressaoEntrada:
+        mov r14, [rbp-8]
+        cmp BYTE[r14+r15], 0
+        je proximaEntrada
+        mov r13, r15
+        add r13, 20
+        cmp BYTE[r14+r13], 0
+        jne proximaEntrada
+    
+        mov r13, r15
+        xor r12, r12
+        lacoImpressaoEntradaNome:
+            mov rax, _write
+            mov rdi, 1
+            mov rsi, [r14+r13]
+            mov rdx, 1
+            syscall
+
+            inc r13
+            inc r12
+            cmp r12, 16
+            je imprimePonto
+            cmp BYTE[r14+r13], 0x2e
+            je nomeNaoMaximo
+            jmp lacoImpressaoEntradaNome
+
+        nomeNaoMaximo:
+            mov r8, 16
+            sub r8, r12 
+            mov r12, 16
+            add r13, r8 
+        imprimePonto:
+            mov rax, _write
+            mov rdi, 1
+            lea rsi, [caracterPonto]
+            mov rdx, 1
+            syscall
+        lacoImpressaoEntradaExtensao:
+            mov rax, _write
+            mov rdi, 1
+            mov rsi, [r14+r13]
+            mov rdx, 1
+            syscall
+
+            inc r13
+            inc r12
+            cmp r12, 19
+            je proximaEntrada
+            cmp BYTE[r14+r13], 0x2e
+            je proximaEntradaAjuste
+            jmp lacoImpressaoEntradaExtensao
+
+    proximaEntradaAjuste:
+        mov r8, 19
+        sub r8, r12
+        add r13, r8
+    proximaEntrada:
+
+
 
     mov rsp, rbp
     pop rbp
     ret
+
+
 
 
 
