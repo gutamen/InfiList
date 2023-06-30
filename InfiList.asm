@@ -84,7 +84,7 @@ section .data
 
 section .bss
     
-    tamanhoBloco            : resb 1 
+    tamanhoBloco            : resq 1 
     ponteiroRaiz            : resq 1
     ponteiroBlocosLimpos    : resq 1
     tamanhoArmazenamento    : resq 1
@@ -121,12 +121,12 @@ _start:
 	mov [argc], r9              ; Salvando endereço do argumento em variável
 
 
-    %include "pushall.asm"
-    mov rdi, [argc]
-    mov rsi, 0
-    mov rdx, 10
-    call formatacao             ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
-    %include "popall.asm"
+    ;%include "pushall.asm"
+    ;mov rdi, [argc]
+    ;mov rsi, 0
+    ;mov rdx, 10
+    ;call formatacao             ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+    ;%include "popall.asm"
 
 
     %include "pushall.asm"
@@ -315,7 +315,8 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     mov [rbp-24], rcx
     mov [rbp-32], r8
     mov [rbp-40], r9
-
+    
+    
 
     mov rax, _open
     ;mov rdi, rdi
@@ -333,45 +334,40 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
 
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-8]
-    mov rsi, [r15]
+    mov rsi, [rbp-8]
     mov rdx, 1
     syscall                     ; Lê a pontência do bloco 
 
-    ;mov r15, [rbp-8]
+    mov r15, [rbp-8]
     mov cl, [r15]
-    and [r15], 0
+    and QWORD[r15], 0
     mov rax, 512
     shl rax, cl
     mov [r15], rax           ; Armazena tamanho dos setores
 
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-16]
-    mov rsi, [r15]           
+    mov rsi, [rbp-16]           
     mov rdx, 8
     syscall                     ; Armazena o ponteiro para o diretório raiz
 
 
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-24]
-    mov rsi, [r15]
+    mov rsi, [rbp-24]
     mov rdx, 8
     syscall                     ; Armazena o ponteiro para os blocos livres
 
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-32]
-    mov rsi, [r15]
+    mov rsi, [rbp-32]
     mov rdx, 8
     syscall                     ; Armazena o tamanho do dispositivo
     
     
     mov rax, _read
     mov rdi, [rbp-48]
-    mov r15, [rbp-40]
-    mov rsi, [r15]
+    mov rsi, [rbp-40]
     mov rdx, 6
     syscall                     ; Armazena a quantidade de blocos
     
