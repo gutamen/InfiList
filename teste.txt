@@ -1,0 +1,8 @@
+ERAD
+
+QM 200 983 327 BR
+
+Minicurso IV: Programação em GPU no Ambiente Google Colaboratory
+Sala 2
+Ricardo Ferreira, Michael Canesche e Westerley Carvalho Oliveira (UFV)
+Este trabalho apresenta um minicurso sobre a programação de GPU no Google Colaboratory (Colab). Tem como objetivo fornecer um material introdutório para o ensino e pesquisa com GPU no ambiente Colab, democratizando e desmistificando o acesso às GPUs. O Colab disponibiliza 4 tipos de GPU (K80, P4, P100 e T4) de forma gratuita e pode ser acessado, inclusive, por celular. Inicialmente, uma introdução à programação GPU é apresentada, juntamente com a configuração do Colab. Em seguida, vários exemplos de código são apresentados para ilustrar a execução, os recursos e as técnicas básicas de programação para GPU. Os laboratórios do minicurso também incluem material adicional com exercícios e sugestões de atividades extras.

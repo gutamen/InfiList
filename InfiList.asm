@@ -45,7 +45,7 @@ section .data
 	jumpLine : db 10, 0 
 	
 	limpaTerminal       : db   27,"[H",27,"[2J"    ; <ESC> [H <ESC> [2J
-	limpaTerminalL      : equ  $-clearTerm         ; tamanho da string para limpar terminal
+	limpaTerminalL      : equ  $-limpaTerminal         ; tamanho da string para limpar terminal
 	
 	caracterPonto : db 0x2e, 0
 
@@ -77,6 +77,10 @@ section .data
 	
 	archFinish		: db 0x09, "|", 10, 0
 	archFinishL	: equ $-archFinish
+
+    testeArquivo    : db "./teste.txt", 0
+    testeArquivoL   : equ $-testeArquivo 
+
 	
 	beep			: db 0x07, 0
 
@@ -93,10 +97,10 @@ section .bss
     ponteiroDiretorioAtual  : resq 1
     tamanhoDiretorioAtual   : resq 1
 
-    ponteiroArquivo : resq 1
-    argv            : resq 1
-    argc            : resq 1
-    buffer          : resq 1  
+    ponteiroDispositivo : resq 1
+    argv                : resq 1
+    argc                : resq 1
+    buffer              : resq 1  
 
 	
 section .text
@@ -114,34 +118,40 @@ _start:
     mov r8, [rsp]
 	mov [argv], r8
 	cmp QWORD[argv], 2        ; Verifica a quantidade de argumentos
-	jne _end
+	;jne _end
   
 	mov r8, rsp
 	add r8, 16
 	mov r9, [r8]
 	mov [argc], r9              ; Salvando endereço do argumento em variável
 
+    mov QWORD[tamanhoBloco], 512    ; Teste de sistema
 
     ;%include "pushall.asm"
     ;mov rdi, [argc]
     ;mov rsi, 0
     ;mov rdx, 10
-    ;call formatacao             ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+    ;call formatacao             ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+    ;%include "popall.asm"
+
+
+    ;%include "pushall.asm"
+    ;mov rdi, [argc]
+    ;lea rsi, [tamanhoBloco]
+    ;lea rdx, [ponteiroRaiz]
+    ;lea rcx, [ponteiroBlocosLimpos]
+    ;lea r8, [tamanhoArmazenamento]
+    ;lea r9, [quantidadeBlocos]
+    ;call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
+    ;mov [ponteiroDispositivo], rax
     ;%include "popall.asm"
 
 
     %include "pushall.asm"
-    mov rdi, [argc]
-    lea rsi, [tamanhoBloco]
-    lea rdx, [ponteiroRaiz]
-    lea rcx, [ponteiroBlocosLimpos]
-    lea r8, [tamanhoArmazenamento]
-    lea r9, [quantidadeBlocos]
-    call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
-    mov [ponteiroArquivo], rax
+    lea rdi, [testeArquivo]
+    mov rsi, 0
+    call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi]) 
     %include "popall.asm"
-
-
 
 
 _end:
@@ -153,7 +163,7 @@ _end:
 
 
 
-formatacao: ;int[rax] formatacao(long *dispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
 	
     push rbp
 	mov rbp, rsp
@@ -421,7 +431,8 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
         mov rdi, [rbp-8]
         mov r8, [rbp-32]
         add r8, 32
-        mov rsi, [rbp-r8]
+        neg r8
+        mov rsi, [rbp+r8]
         mov rdx, [rbp-32]
         syscall                             ; Armazena o bloco na pilha
         
@@ -452,7 +463,8 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
         mov rax, _read
         mov rdi, [rbp-8]
         add rcx, 32
-        mov rsi, [rbp-rcx]
+        neg rcx
+        mov rsi, [rbp+rcx]
         syscall                                 ; Lê as entradas do subdiretório
 
         mov rax, _seek
@@ -488,7 +500,8 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
             mov rdi, [rbp-8]
             mov rcx, [tamanhoDiretorioAtual]
             add rcx, 32
-            mov rsi, [rbp-rcx]
+            neg rcx
+            mov rsi, [rbp+rcx]
             syscall                                 ; Lê as entradas do subdiretório
 
             mov rax, _seek
@@ -594,8 +607,94 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorio[rdi], long *t
     pop rbp
     ret
 
+copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
+    push rbp
+    mov rbp, rsp  
+    
+    sub rsp, 32
+    mov [rbp-8], rdi
+    mov [rbp-16], rsi
+    mov [rbp-24], rdx
+    mov [rbp-32], rcx
+
+    mov rax, _open
+    ;mov rdi, rdi
+    mov rsi, readwrite
+    mov rdx, userWR
+    syscall                 ; Abre o arquivo a ser carregado
+
+    cmp rax, 0
+    jle erroCopiaParaDentroSemAbrir
+
+    sub rsp, 8
+    mov [rbp-40], rax
+
+    sub rsp, 96
+
+                            ; Obter informações do arquivo
+    mov rax, 4              ; Número da chamada de sistema para "fstat"
+    mov rbx, [rbp-40]       ; Descritor do arquivo
+    lea rsi, [rbp-136]      ; Endereço da estrutura struct stat
+    mov rdx, 88             ; Tamanho da estrutura struct stat
+    syscall
+                            ; Tamanho do arquivo fica em rbp-80
+    mov r8, [rbp-88] 
+
+    mov r15, [tamanhoBloco]
+    sub r15, 8
+    xor rdx, rdx
+    mov rax, [rbp-88]
+    div r15
+    mov r12, rax
+    cmp rdx, 0
+    je verifcaEspaco
+    inc r12
+
+    mov r14, [rbp-32]
+    cmp r14, -1
+    je erroDispositivoSemEspacoSuficiente
+    mov r13, 1
+    verifcaEspaco:
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, r14
+        add rsi, r15
+        xor rdx, rdx
+        syscall
+
+        mov rax, _read
+        mov rdi, [rbp-24]
+        lea rsi, [buffer]
+        mov rdx, 8
+        syscall
+
+        xor rbx, rbx
+        dec rbx
+        inc r13
+
+        mov r14, [buffer]
+        cmp r13, r12
+        je espacoSufienteAlocavel
+
+        cmp QWORD[buffer], rbx
+        je erroDispositivoSemEspacoSuficiente
+        
+        jmp verifcaEspaco
 
 
+    espacoSufienteAlocavel:
+         
+
+
+
+    erroDispositivoSemEspacoSuficiente:
+
+    erroCopiaParaDentroSemAbrir:
+
+    
+    mov rsp, rbp
+    pop rbp
+    ret
 
 
 
