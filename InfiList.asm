@@ -37,8 +37,11 @@ section .data
 	argErrorDIR: db "Erro: não é possível abrir diretório", 10, 0
     argErrorDIRL: equ $-argErrorDIR
 
-	promptDialog: db 10, 10, "Pressione [Enter] para continuar", 10, 0
-    promptDialogL: equ $-promptDialog
+    erroAberturaSistema     : db "Erro: não foi possível abrir o dispositivo", 10, 0
+    erroAberturaSistemaL    : equ $-erroAberturaSistema
+    
+	avisoParaEspera         : db 10, 10, "Pressione [Enter] para continuar", 10, 0
+    avisoParaEsperaL        : equ $-avisoParaEspera
 	
     strOla  : db "Testi", 10, 0
     strOlaL : equ $-strOla
@@ -79,7 +82,7 @@ section .data
 	archFinish		: db 0x09, "|", 10, 0
 	archFinishL	: equ $-archFinish
 
-    testeArquivo    : db "./teste.txt", 0
+    testeArquivo    : db "/home/gustavo/Documentos/InfiList/teste.txt", 0
     testeArquivoL   : equ $-testeArquivo 
 
 	
@@ -105,6 +108,7 @@ section .bss
     buffer              : resq 1  
 
 	bufferCaracteres    : resb 512
+    bufferTeclado       : resb 512
 
 section .text
 
@@ -127,8 +131,9 @@ _start:
 	add r8, 16
 	mov r9, [r8]
 	mov [argc], r9              ; Salvando endereço do argumento em variável
-
-    mov QWORD[tamanhoBloco], 512    ; Teste de sistema
+    
+    
+    ;mov QWORD[tamanhoBloco], 512    ; Teste de sistema
 
     ;%include "pushall.asm"
     ;mov rdi, [argc]
@@ -138,26 +143,40 @@ _start:
     ;%include "popall.asm"
 
 
-    ;%include "pushall.asm"
-    ;mov rdi, [argc]
-    ;lea rsi, [tamanhoBloco]
-    ;lea rdx, [ponteiroRaiz]
-    ;lea rcx, [ponteiroBlocosLimpos]
-    ;lea r8, [tamanhoArmazenamento]
-    ;lea r9, [quantidadeBlocos]
-    ;call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
-    ;mov [ponteiroDispositivo], rax
-    ;%include "popall.asm"
+    %include "pushall.asm"
+    mov rdi, [argc]
+    lea rsi, [tamanhoBloco]
+    lea rdx, [ponteiroRaiz]
+    lea rcx, [ponteiroBlocosLimpos]
+    lea r8, [tamanhoArmazenamento]
+    lea r9, [quantidadeBlocos]
+    call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
+    mov [ponteiroDispositivo], rax
+    %include "popall.asm"
 
 
+    
     %include "pushall.asm"
     lea rdi, [testeArquivo]
-    mov rsi, 0
-    call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi]) 
+    lea rsi, [ponteiroRaiz]
+    lea rdx, [ponteiroDispositivo]
+    lea rcx, [ponteiroBlocosLimpos]
+    call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
+    %include "popall.asm"
+
+    
+    %include "pushall.asm"
+    lea rdi, [ponteiroDispositivo]
+    call atualizaDispositivos ; long atualizaDispositivos(char *ponteiroDispositivo[rdi]) 
     %include "popall.asm"
 
 
 _end:
+    mov rax, _close
+    mov rdi, [ponteiroDispositivo]
+    syscall
+
+
     mov rax, _exit
     mov rdi, 0
     syscall
@@ -202,6 +221,7 @@ formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBlo
     mov cl, r14b
     shl rax, cl 
     mov [rbp-16], rax           ; Armazena o tamanho do bloco
+   
     
     mov rax, _seek
     mov rdi, [rbp-8]
@@ -361,6 +381,7 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     shl rax, cl
     mov [r15], rax           ; Armazena tamanho dos setores
 
+    
     mov rax, _read
     mov rdi, [rbp-48]
     mov rsi, [rbp-16]           
@@ -395,6 +416,29 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     ret
     
     naoIniciouSistema:
+        mov rax, _write
+        mov rdi, 1
+        lea rsi, [erroAberturaSistema]
+        mov rdx, erroAberturaSistemaL
+        syscall
+        
+        mov rax, _write
+		mov rdi, 1
+		lea rsi, [avisoParaEspera]
+		mov rdx, avisoParaEsperaL
+		syscall
+		
+		avisoNaoInicializouSistema:
+			mov rax, _read
+			mov rdi, 0
+			lea rsi, [buffer]
+			mov rdx, 1
+			syscall
+			
+			cmp BYTE[buffer], 10
+			jne avisoNaoInicializouSistema
+
+
     xor rax, rax
     dec rax
 
@@ -630,13 +674,25 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     mov rsi, readwrite
     mov rdx, userWR
     syscall                 ; Abre o arquivo a ser carregado
-
     cmp rax, 0
     jle erroCopiaParaDentroSemAbrir
 
     sub rsp, 8
-    mov [rbp-40], rax
-	
+    mov [rbp-40], rax	
+    sub rsp, 144
+
+
+
+                            ; Obter informações do arquivo
+    mov rax, _fstat         ; Número da chamada de sistema para "fstat"
+    mov rbx, [rbp-40]       ; Descritor do arquivo
+    lea rsi, [rbp-184]      ; Endereço da estrutura struct stat
+    ;mov rdx, 88             ; Tamanho da estrutura struct stat
+    syscall
+                            ; Tamanho do arquivo fica em rbp-136
+    mov r8, [rbp-136]
+
+
     %include "pushall.asm"
     mov rdi, [rbp-8]
     mov rsi, [rbp-16]
@@ -648,34 +704,30 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     semPastaRaizParaProcurar:
     inc rcx
     call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
+    mov [rbp-184], rax
 	%include "popall.asm"
 
-    sub rsp, 96
 
-                            ; Obter informações do arquivo
-    mov rax, _fstat         ; Número da chamada de sistema para "fstat"
-    mov rbx, [rbp-40]       ; Descritor do arquivo
-    lea rsi, [rbp-136]      ; Endereço da estrutura struct stat
-    mov rdx, 88             ; Tamanho da estrutura struct stat
-    syscall
-                            ; Tamanho do arquivo fica em rbp-88
-    mov r8, [rbp-88] 
-    pause:
+   pause: 
+
+
+
+    
     mov r15, [tamanhoBloco]
     sub r15, 8
     xor rdx, rdx
-    mov rax, [rbp-88]
+    mov rax, [rbp-136]
     div r15
     mov r12, rax
     cmp rdx, 0
-    je verifcaEspaco
+    je verificaEspaco
     inc r12
 
     mov r14, [rbp-32]
     cmp r14, -1
     je erroDispositivoSemEspacoSuficiente
     mov r13, 1
-    verifcaEspaco:
+    verificaEspaco:
         mov rax, _seek
         mov rdi, [rbp-24]
         mov rsi, r14
@@ -700,7 +752,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
         cmp QWORD[buffer], rbx
         je erroDispositivoSemEspacoSuficiente
         
-        jmp verifcaEspaco
+        jmp verificaEspaco
 
 
     espacoSufienteAlocavel:
@@ -732,7 +784,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		syscall					
 		
 		dec r12
-		sub [rbp-88], r15
+		sub [rbp-136], r15
 		
 		mov rax, _write
 		mov rdi, [rbp-24]
@@ -758,16 +810,16 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		mov rax, _read
 		mov rdi, [rbp-40]
 		mov rsi, [rbp+r14]
-		mov rdx, [rbp-88]
+		mov rdx, [rbp-136]
 		syscall
 		
 		mov rax, _write
 		mov rdi, [rbp-24]
 		mov rsi, [rbp+r14]
-		mov rdx, [rbp-88]
+		mov rdx, [rbp-136]
 		syscall
 		
-		sub r15, [rbp-88]
+		sub r15, [rbp-136]
 		
 		mov rax, _seek
 		mov rdi, [rbp-24]
@@ -786,8 +838,79 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		mov rdx, 8
 		syscall
 		
+    
+    sub rsp, 64
+    mov r15, rbp
+    sub r15, 248
+    xor rbx, rbx
+    xor rcx, rcx
+    xor rdx, rdx
+    criarEntradaParaDiretorio:
+        mov cl, [bufferCaracteres+rdx]
+        cmp cl, 46
+        je preencheEspacoNome
+        and cl, 0xDF
+        mov [r15+rbx], cl
+        inc rdx
+        inc rbx
+        cmp rdx, 16
+        je parteDaExtensao
+        jne criarEntradaParaDiretorio
+
+    preencheEspacoNome:
+        mov BYTE[r15+rbx], 32
+        inc rbx
+        cmp rbx, 16
+        jne preencheEspacoNome
+    
+    parteDaExtensao:
+        inc rdx
+        mov cl, [bufferCaracteres+rdx]
+        cmp cl, 10
+        je preencheEspacoExtensao
+        mov [r15+rbx], cl
+        inc rbx
+        cmp rbx, 19
+        je defineTipoNaEntrada
+        jne parteDaExtensao 
+
+        
+
+    preencheEspacoExtensao:
+        mov BYTE[r15+rbx], 32
+        inc rbx
+        cmp rbx, 19
+        jne preencheEspacoExtensao
 
 
+    defineTipoNaEntrada:
+        mov BYTE[r15+rbx], 0
+        inc rbx
+        mov BYTE[r15+rbx], 0
+        inc rbx
+        mov rax, [rbp-136]
+        mov [r15+rbx], rax
+        add rbx, 8
+                                    ; Aqui deve ter o tempo de acesso
+        add rbx, 27
+        mov [r15+rbx], r13 
+    
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, [rbp-184]
+        xor rdx, rdx
+        syscall
+
+        mov rax, _write
+        mov rdi, [rbp-24]
+        mov rsi, [rbp-248]
+        mov rdx, 64
+        syscall
+    
+        mov rsp, rbp
+        pop rbp
+        ret
+        
     erroDispositivoSemEspacoSuficiente:
 
     erroCopiaParaDentroSemAbrir:
@@ -881,5 +1004,97 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 	            	
 	
 	mov rsp, rbp
+    pop rbp
+    ret
+
+
+tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
+	push rbp
+    mov rbp, rsp 
+
+    sub rsp, 8
+    mov [rbp-8], rdi
+    xor r15, r15
+
+    procuraEnterNaEntrada:
+        mov r10b, BYTE[rdi+r15]
+        inc r15
+        cmp r10b, 10
+        jne procuraEnterNaEntrada
+    
+    dec r15
+    mov r14, r15
+    dec r14
+    procuraBarraNaEntrada:
+        mov r10b, BYTE[rdi+r14]
+        dec r14
+        cmp r14, 0
+        je dentroPasta
+        cmp r10b, 47
+        jne procuraBarraNaEntrada
+    
+
+    inc r14 
+    mov r13, r14
+    inc r14
+    dentroPasta:
+    mov r13, r14
+    procuraExtensaoNaEntrada:
+        mov r10b, BYTE[rdi+r13]
+        inc r13
+        cmp r10b, 46
+        jne procuraExtensaoNaEntrada
+        
+    
+    xor rbx, rbx
+    lacoPreencheBufferCaractere:
+        mov r10b, BYTE[rdi+r14]
+        mov [bufferCaracteres+rbx], r10b
+        inc rbx
+        inc r14
+        cmp r14, r15
+        jng lacoPreencheBufferCaractere
+        
+    mov BYTE[bufferCaracteres+rbx], 0
+    mov rax, rbx 
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+atualizaDispositivos: ; long atualizaDispositivos(char *ponteiroDispositivo[rdi]) 
+  	push rbp
+    mov rbp, rsp   
+    
+    sub rsp, 8
+    mov [rbp-8], rdi
+
+    mov rax, _seek
+;    mov rdi, rdi
+    mov rsi, 9
+    xor rdx, rdx
+    syscall
+
+
+    mov rax, _write
+    mov rdi, [rbp-8]
+    lea rsi, [ponteiroBlocosLimpos]
+    mov rdx, 8
+    syscall
+
+    mov rax, _close
+    mov rdi, [rbp-8]
+    syscall
+
+    mov rax, _open
+    mov rdi, [argc]
+    mov rsi, readwrite
+    mov rdx, userWR
+    syscall
+
+    mov [ponteiroDispositivo], rax
+
+    mov rsp, rbp
     pop rbp
     ret
