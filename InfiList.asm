@@ -94,8 +94,9 @@ section .bss
     tamanhoArmazenamento    : resq 1
     quantidadeBlocos        : resb 6
 
-    ponteiroDiretorioAtual  : resq 1
-    tamanhoDiretorioAtual   : resq 1
+	ponteiroDiretorioAtualAbsoluto	: resq 1
+    ponteiroDiretorioAtual  		: resq 1
+    tamanhoDiretorioAtual   		: resq 1
 
     ponteiroDispositivo : resq 1
     argv                : resq 1
@@ -423,7 +424,7 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
         sub rsp, [rbp-32]
         mov rax, _seek
         mov rdi, [rbp-8]
-        mov rsi, [ponteiroRaiz]             ; Utiliza o ponteiro para o bloco raiz para acessá-lo DADO EXTERNO
+        mov rsi, [ponteiroRaiz]             ; Utiliza o ponteiro para o bloco raiz para acessá-lo dado externo
         xor rdx, rdx
         syscall
 
@@ -434,17 +435,22 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
         neg r8
         mov rsi, [rbp+r8]
         mov rdx, [rbp-32]
-        syscall                             ; Armazena o bloco na pilha
+        syscall                             		; Armazena o bloco na pilha
         
-        mov [ponteiroDiretorioAtual], rsp   ; Altera o ponteiro para a pilha com o diretório carregado
-        mov r10, [tamanhoBloco]
-        mov [tamanhoDiretorioAtual], r10    ; Altera o tamanho do diretório atual
+		mov rbx, [ponteiroRaiz]
+		mov [ponteiroDiretorioAtualAbsoluto], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
+        mov [ponteiroDiretorioAtual], rsp   		; Altera o ponteiro para a pilha com o diretório carregado
+        mov r10, [rbp-32]
+        mov [tamanhoDiretorioAtual], r10    		; Altera o tamanho do diretório atual
         mov rsp, rbp
         pop rbp
         ret
 
 
     carregaSubdiretorio:
+		mov rbx, [rbp-24]
+		mov [ponteiroDiretorioAtualAbsoluto], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
+		
         mov rax, _seek
         mov rdi, [rbp-8]
         mov rsi, [rbp-24]
@@ -628,6 +634,10 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
     sub rsp, 8
     mov [rbp-40], rax
+	
+	
+							; <---- criar função para colocar entrada no diretório
+	
 
     sub rsp, 96
 
@@ -637,7 +647,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     lea rsi, [rbp-136]      ; Endereço da estrutura struct stat
     mov rdx, 88             ; Tamanho da estrutura struct stat
     syscall
-                            ; Tamanho do arquivo fica em rbp-80
+                            ; Tamanho do arquivo fica em rbp-88
     mov r8, [rbp-88] 
 
     mov r15, [tamanhoBloco]
@@ -683,8 +693,88 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
 
     espacoSufienteAlocavel:
-         
-
+		mov r13, r14							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
+		mov [buffer], r13
+		
+		mov [ponteiroBlocosLimpos], r14			; Cuidado dados ocultação de informação
+		
+		dec r12									; Tirando um bloco para ajuste final
+		sub rsp, r15
+		
+		mov r14, r15
+		add r14, 136
+		neg r14
+		
+		
+		
+	lacoForConstroiArquivo:
+		mov rax, _seek
+		mov rdi, [rbp-24]
+		mov rsi, [buffer]
+		xor rdx, rdx
+		syscall									; Coloca o ponteiro no início da escrita
+	
+		mov rax, _read
+		mov rdi, [rbp-40]
+		mov rsi, [rbp+r14]
+		mov rdx, r15
+		syscall					
+		
+		dec r12
+		sub [rbp-88], r15
+		
+		mov rax, _write
+		mov rdi, [rbp-24]
+		mov rsi, [rbp+r14]
+		mov rdx, r15
+		syscall
+		
+		mov rax, _read
+		mov rdi, [rbp-24]
+		mov rsi, [buffer]
+		mov rdx, 8
+		syscall
+		
+		cmp r12, 0
+		jne lacoForConstroiArquivo
+		
+		mov rax, _seek
+		mov rdi, [rbp-24]
+		mov rsi, [buffer]
+		xor rdx, rdx
+		syscall	
+		
+		mov rax, _read
+		mov rdi, [rbp-40]
+		mov rsi, [rbp+r14]
+		mov rdx, [rbp-88]
+		syscall
+		
+		mov rax, _write
+		mov rdi, [rbp-24]
+		mov rsi, [rbp+r14]
+		mov rdx, [rbp-88]
+		syscall
+		
+		sub r15, [rbp-88]
+		
+		mov rax, _seek
+		mov rdi, [rbp-24]
+		mov rsi, r15
+		mov rdx, 1 
+		syscall	
+		
+		xor rbx, rbx
+		dec rbx
+		mov [buffer], rbx
+		
+		
+		mov rax, _write
+		mov rdi, [rbp-24]
+		mov rsi, [buffer]
+		mov rdx, 8
+		syscall
+		
 
 
     erroDispositivoSemEspacoSuficiente:
@@ -697,4 +787,28 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     ret
 
 
+criaEntradaDiretorio:	; long criaEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx])
+	push rbp
+    mov rbp, rsp 
 
+	sub rsp, 24
+    mov [rbp-8], rdi
+    mov [rbp-16], rsi
+    mov [rbp-24], rdx	
+	
+	mov r15, [rbp-16]
+	
+	sub rsp, 64
+	
+	verificaEspacoDiretorio:
+		mov rax, _seek
+		mov rdi, [rbp-24]
+		mov rsi, r15
+		xor rdx, rdx
+		syscall
+		
+		
+	
+	mov rsp, rbp
+    pop rbp
+    ret
