@@ -3,12 +3,13 @@
 ; objetivo: Gerenciar arquivos
 ; nasm -f elf64 InfiList.asm ; ld InfiList.o -o InfiList.x
 
-%define _exit     60
-%define _write    1
-%define _open     2
-%define _read     0
-%define _seek     8
-%define _close    3
+%define _exit       60
+%define _write      1
+%define _open       2
+%define _read       0
+%define _seek       8
+%define _close      3
+%define _fstat      4
 %define readOnly  0o    		; flag open()
 %define writeOnly 1o    			; flag open()
 %define readwrite 2o    			; flag open()
@@ -103,7 +104,8 @@ section .bss
     argc                : resq 1
     buffer              : resq 1  
 
-	
+	bufferCaracteres    : resb 512
+
 section .text
 
     global _start
@@ -635,21 +637,30 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     sub rsp, 8
     mov [rbp-40], rax
 	
-	
-							; <---- criar função para colocar entrada no diretório
-	
+    %include "pushall.asm"
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-16]
+    mov rdx, [rbp-24]
+    xor rcx, rcx
+    cmp rsi, [ponteiroRaiz]
+    jne semPastaRaizParaProcurar
+    dec rcx
+    semPastaRaizParaProcurar:
+    inc rcx
+    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
+	%include "popall.asm"
 
     sub rsp, 96
 
                             ; Obter informações do arquivo
-    mov rax, 4              ; Número da chamada de sistema para "fstat"
+    mov rax, _fstat         ; Número da chamada de sistema para "fstat"
     mov rbx, [rbp-40]       ; Descritor do arquivo
     lea rsi, [rbp-136]      ; Endereço da estrutura struct stat
     mov rdx, 88             ; Tamanho da estrutura struct stat
     syscall
                             ; Tamanho do arquivo fica em rbp-88
     mov r8, [rbp-88] 
-
+    pause:
     mov r15, [tamanhoBloco]
     sub r15, 8
     xor rdx, rdx
@@ -787,27 +798,87 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     ret
 
 
-criaEntradaDiretorio:	; long criaEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx])
+procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
 	push rbp
     mov rbp, rsp 
 
-	sub rsp, 24
+	sub rsp, 32
     mov [rbp-8], rdi
     mov [rbp-16], rsi
     mov [rbp-24], rdx	
+    mov [rbp-32], rcx
 	
 	mov r15, [rbp-16]
 	
 	sub rsp, 64
-	
-	verificaEspacoDiretorio:
-		mov rax, _seek
-		mov rdi, [rbp-24]
-		mov rsi, r15
-		xor rdx, rdx
-		syscall
-		
-		
+
+	mov rax, _seek
+	mov rdi, [rbp-24]
+	mov rsi, r15
+	xor rdx, rdx
+	syscall
+
+    xor r14, r14
+
+    jecxz verificaEspacoEntradaRoot
+
+	verificaEspacoEntradaDiretorio:
+        mov rax, _read
+        mov rdi, [rbp-24]
+        mov rsi, [rbp-96]
+        mov rdx, 64
+        syscall
+        
+        add r14, 64
+        add r15, 64
+        
+        cmp r14, [tamanhoBloco]
+        je atualizaBlocoDiretorioBuscaEntrada
+        cmp BYTE[rbp-96], 0
+        je temEspacoParaEntrada
+        cmp BYTE[rbp-76], 0
+        jne temEspacoParaEntrada
+
+        atualizaBlocoDiretorioBuscaEntrada:
+            xor rbx, rbx
+            dec rbx
+            mov r15, [rbp-40]
+            cmp r15, rbx
+            je semEspacoParaEntrada
+            
+            xor r14, r14
+            jmp verificaEspacoEntradaDiretorio
+
+
+
+    verificaEspacoEntradaRoot:
+        mov rax, _read
+        mov rdi, [rbp-24]
+        mov rsi, [rbp-96]
+        mov rdx, 64
+        syscall
+        
+        add r14, 64
+        add r15, 64
+        
+        cmp BYTE[rbp-96], 0
+        je temEspacoParaEntrada
+        cmp BYTE[rbp-76], 0
+        jne temEspacoParaEntrada
+        cmp r14, [tamanhoBloco]
+        je semEspacoParaEntrada
+        jne verificaEspacoEntradaRoot
+
+    temEspacoParaEntrada:
+        mov rax, r15                ; Retorna o ponteiro absoluto onde a entrada nova deve ser inserida
+        mov rsp, rbp
+        pop rbp
+        ret
+
+    semEspacoParaEntrada:
+        xor rax, rax
+        dec rax                     ; Retorna -1 se não tem espaço para entrada
+	            	
 	
 	mov rsp, rbp
     pop rbp
