@@ -169,6 +169,7 @@ _start:
     mov [ponteiroDispositivo], rax
     %include "popall.asm"
 
+
 ;    %include "pushall.asm"
 ;    mov rax, _seek
 ;    mov rdi, [ponteiroDispositivo]
@@ -199,7 +200,6 @@ _start:
     call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
     %include "popall.asm"
 
-    
     %include "pushall.asm"
     lea rdi, [ponteiroDispositivo]
     call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
@@ -732,88 +732,61 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
 
     %include "pushall.asm"
-    mov rdi, [rbp-8]
-    lea rsi, [rbp-16]
-    lea rdx, [rbp-24]
-    xor rcx, rcx
-	mov rax, [rsi]
+    lea rdi, [rbp-16]
+    lea rsi, [rbp-24]
+    xor rdx, rdx
+	mov rax, [rdi]
     cmp rax, [ponteiroRaiz]
     jne semPastaRaizParaProcurar
-    dec rcx
+        dec rdx
     semPastaRaizParaProcurar:
-    inc rcx
-    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
+    inc rdx
+    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx])
     mov [rbp-184], rax
 	%include "popall.asm"
 
 
 
 
-
+    %include "pushall.asm"
+    lea rdi, [rbp-136]
+    lea rsi, [rbp-24]
+    mov rdx, [rbp-32]
+    call verificaEspacoEmLimpos ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+    mov [rbp-152], rax
+    %include "popall.asm"
     
-    mov r15, [tamanhoBloco]
-    sub r15, 8
-    xor rdx, rdx
-    mov rax, [rbp-136]
-    div r15
-    mov r12, rax
-    cmp rdx, 0
-    je verificaEspaco
-    inc r12
-	
-    mov rax, [rbp-32]
-	mov r14, [rax]
-	xor rbx, rbx
-	dec rbx
-    cmp r14, rbx
+    xor rbx, rbx
+    dec rbx
+    cmp rbx, [rbp-152]
     je erroDispositivoSemEspacoSuficiente
-    xor r13, r13
-    verificaEspaco:
-        mov rax, _seek
-        mov rdi, [rbp-24]
-        mov rsi, r14
-        add rsi, r15
-        xor rdx, rdx
-        syscall
+    
+        espacoSufienteAlocavel:
+		    mov rax, [rbp-32]
+		    mov r13, [rax]							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
+	    	mov [buffer], r13
+	        
+            mov r14, [rbp-152]
+    		mov [rax], r14							; Atualiza o ponteiro de blocos limpos
+		    dec r12									; Tirando um bloco para ajuste final
+            xor rdx, rdx
+            mov rax, [rbp-136]
+            div QWORD[tamanhoBloco]
 
-        mov rax, _read
-        mov rdi, [rbp-24]
-        lea rsi, [buffer]
-        mov rdx, 8
-        syscall
-
-        xor rbx, rbx
-        dec rbx
-        inc r13
-
-        mov r14, [buffer]
-        cmp r13, r12
-        je espacoSufienteAlocavel
-
-        cmp QWORD[buffer], rbx
-        je erroDispositivoSemEspacoSuficiente
-        
-        jmp verificaEspaco
-
-
-    espacoSufienteAlocavel:
-		mov rax, [rbp-32]
-		mov r13, [rax]							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
-		mov [buffer], r13
+            mov r12, rax
+	        mov r15, [tamanhoBloco]
+            sub r15, 8
+            sub rsp, r15
 		
-		mov [rax], r14							; Atualiza o ponteiro de blocos limpos
-		dec r12									; Tirando um bloco para ajuste final
-		sub rsp, r15
+    		mov r14, r15
+		    add r14, 184
+	    	neg r14
 		
-		mov r14, r15
-		add r14, 184
-		neg r14
-		
-		mov rax, _seek
-		mov rdi, [rbp-40]
-		xor rsi, rsi
-		xor rdx, rdx
-		syscall	
+    		mov rax, _seek
+    		mov rdi, [rbp-40]
+    		xor rsi, rsi
+    		xor rdx, rdx
+		    syscall	
 		
 		
 	lacoForConstroiArquivo:
@@ -829,7 +802,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		add rsi, r14
 		mov rdx, r15
 		syscall					
-		
+
 		dec r12
 		sub [rbp-136], r15
 		
@@ -984,17 +957,17 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     ret
 
 
-procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
+procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx])
 	push rbp
     mov rbp, rsp 
 
 	sub rsp, 32
-    mov [rbp-8], rdi
-    mov rax, [rsi]
+    ;mov [rbp-8], rdi
+    mov rax, [rdi]
 	mov [rbp-16], rax
-	mov rax, [rdx]
+	mov rax, [rsi]
     mov [rbp-24], rax	
-    mov [rbp-32], rcx
+    mov [rbp-32], rdx
 	
 	mov r15, [rbp-16]
 	
@@ -1327,6 +1300,7 @@ copiaParaFora: ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], 
 criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], long *ponteiroDispositivo[rsi], char *nomeDiretorio[rdx])
     push rbp
     mov rbp, rsp     
+
     sub rsp, 24
     mov rax, [rdi]
     mov [rbp-8], rax
@@ -1352,34 +1326,76 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
 
 
     lacoCriarSubdiretorioNaRaiz:
+        
+    %include "pushall.asm"
+    mov rdi, [rbp-8]
+    lea rsi, [rbp-16]
+    lea rdx, [rbp-24]
+    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx])
+    mov [rbp-184], rax
+	%include "popall.asm"
+
+
+
+
+    %include "pushall.asm"
+    lea rdi, [rbp-136]
+    lea rsi, [rbp-24]
+    mov rdx, [rbp-32]
+    call verificaEspacoEmLimpos ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+    mov [rbp-152], rax
+    %include "popall.asm"
+   
+
+
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+verificaEspacoEmLimpos: ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+    push rbp
+    mov rbp, rsp  
+    
+    sub rsp, 24
+    mov rax, [rdi]
+    mov [rbp-8], rax
+    mov rbx, [rsi]
+    mov [rbp-16], rbx
+    mov [rbp-24], rdx
+
+
+
 
     mov r15, [tamanhoBloco]
     sub r15, 8
     xor rdx, rdx
-    mov rax, [rbp-136]
+    mov rax, [rbp-8]
     div r15
     mov r12, rax
-    cmp rdx, 0
-    je verificaEspacoSubdiretorio
+    xor rbx, rbx
+    cmp rdx, rbx
+    je lacoVerificaEspacosEmLimpos
     inc r12
-	
-    mov rax, [rbp-32]
-	mov r14, [rax]
+    
+    
+    mov rbx, [rbp-24]
+    mov r14, [rbx]
 	xor rbx, rbx
 	dec rbx
     cmp r14, rbx
-    je erroDispositivoSemEspacoSuficiente
+    je erroNaVerificacaoSemEspaco
     xor r13, r13
-    verificaEspacoSubdiretorio:
+    lacoVerificaEspacosEmLimpos: 
         mov rax, _seek
-        mov rdi, [rbp-24]
+        mov rdi, [rbp-16]
         mov rsi, r14
         add rsi, r15
         xor rdx, rdx
         syscall
 
         mov rax, _read
-        mov rdi, [rbp-24]
+        mov rdi, [rbp-16]
         lea rsi, [buffer]
         mov rdx, 8
         syscall
@@ -1390,22 +1406,24 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
 
         mov r14, [buffer]
         cmp r13, r12
-        je espacoSufienteAlocavel
+        je verificacaoBemSucedida                   ; Quando for verdadeiro o local que o ponteiro de blocs limpos deve se posicionar estará disponível na memória [buffer]
 
         cmp QWORD[buffer], rbx
-        je erroDispositivoSemEspacoSuficiente
+        je erroNaVerificacaoSemEspaco
         
-        jmp verificaEspacoSubdiretorio
+        jmp lacoVerificaEspacosEmLimpos
 
 
+    verificacaoBemSucedida:
+        mov rax, [buffer]
 
+        mov rsp, rbp
+        pop rbp
+        ret
+    erroNaVerificacaoSemEspaco:
 
+    mov rax, [buffer]
 
     mov rsp, rbp
     pop rbp
     ret
-
-
-
-
- 
