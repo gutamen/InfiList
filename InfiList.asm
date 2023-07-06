@@ -84,7 +84,8 @@ section .data
 
     testeArquivo    : db "./teste.txt", 0
     testeArquivoL   : equ $-testeArquivo 
-
+	
+	testeChars		: db "test.txt",0
 	
 	beep			: db 0x07, 0
 
@@ -135,11 +136,11 @@ _start:
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; seção debug
-;	mov rax, [testeArquivo]
+	mov rax, [testeChars]
 ;	mov ebx, [testeArquivo+8]
 	
-;	mov [bufferCaracteres], rax
-;	mov [bufferCaracteres+8], ebx
+	mov [bufferCaracteres], rax
+	mov BYTE[bufferCaracteres+8], 10
 ;	mov BYTE[bufferCaracteres+11], 10
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
 	
@@ -701,10 +702,10 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     mov rax, _fstat         ; Número da chamada de sistema para "fstat"
     mov rbx, [rbp-40]       ; Descritor do arquivo
     lea rsi, [rbp-184]      ; Endereço da estrutura struct stat
-    ;mov rdx, 88             ; Tamanho da estrutura struct stat
     syscall
                             ; Tamanho do arquivo fica em rbp-136
     mov r8, [rbp-136]
+	mov [rbp-144], r8
 
 
     %include "pushall.asm"
@@ -712,7 +713,8 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     lea rsi, [rbp-16]
     lea rdx, [rbp-24]
     xor rcx, rcx
-    cmp rsi, [ponteiroRaiz]
+	mov rax, [rsi]
+    cmp rax, [ponteiroRaiz]
     jne semPastaRaizParaProcurar
     dec rcx
     semPastaRaizParaProcurar:
@@ -778,7 +780,6 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		mov [buffer], r13
 		
 		mov [rax], r14							; Atualiza o ponteiro de blocos limpos
-		
 		dec r12									; Tirando um bloco para ajuste final
 		sub rsp, r15
 		
@@ -868,29 +869,22 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
 		
     
-    ;sub rsp, 64
+    
     mov r15, rbp
     sub r15, 248
-	mov QWORD[r15], 0
-	mov QWORD[r15+8], 0
-	mov QWORD[r15+16], 0
-	mov QWORD[r15+24], 0
-	mov QWORD[r15+32], 0
-	mov QWORD[r15+40], 0
-	mov QWORD[r15+48], 0
-	mov QWORD[r15+56], 0
-    xor rbx, rbx
+	xor rbx, rbx
+	mov QWORD[r15], rbx
+	mov QWORD[r15+8], rbx
+	mov QWORD[r15+16], rbx
+	mov QWORD[r15+24], rbx
+	mov QWORD[r15+32], rbx
+	mov QWORD[r15+40], rbx
+	mov QWORD[r15+48], rbx
+	mov QWORD[r15+56], rbx
     xor rcx, rcx
     xor rdx, rdx
-	
-	%include "pushall.asm"
-	mov rdi, [rbp-8]
-	call tratamentoParaCriacaoDeEntrada ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
-	%include "popall.asm"
-	
-	
     criarEntradaParaDiretorio:
-        mov cl, [bufferCaracteres+rdx]
+        mov cl, [bufferCaracteres+rdx]		; Utilizará o buffer de caracteres corrigido do buffer do teclado
         cmp cl, 46
         je preencheEspacoNome
         and cl, 0xDF
@@ -912,6 +906,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
         mov cl, [bufferCaracteres+rdx]
         cmp cl, 10
         je preencheEspacoExtensao
+		and cl, 0xDF
         mov [r15+rbx], cl
         inc rbx
         cmp rbx, 19
@@ -932,14 +927,14 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
         inc rbx
         mov BYTE[r15+rbx], 0
         inc rbx
-        mov rax, [rbp-136]
+        mov rax, [rbp-144]
         mov [r15+rbx], rax
         add rbx, 8
                                     ; Aqui deve ter o tempo de acesso
         add rbx, 27
         mov [r15+rbx], r13 
 		
-		teste:
+		
         mov rax, _seek
         mov rdi, [rbp-24]
         mov rsi, [rbp-184]
@@ -982,7 +977,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 	mov r15, [rbp-16]
 	
 	sub rsp, 64
-
+	
 	mov rax, _seek
 	mov rdi, [rbp-24]
 	mov rsi, r15
@@ -990,13 +985,13 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 	syscall
 
     xor r14, r14
-
+	mov rcx, [rbp-32]
     jecxz verificaEspacoEntradaRoot
 
 	verificaEspacoEntradaDiretorio:
         mov rax, _read
         mov rdi, [rbp-24]
-        mov rsi, [rbp-96]
+        lea rsi, [rbp-96]
         mov rdx, 64
         syscall
         
@@ -1016,6 +1011,12 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
             mov r15, [rbp-40]
             cmp r15, rbx
             je semEspacoParaEntrada
+			
+			mov rax, _seek
+			mov rdi, [rbp-24]
+			mov rsi, r15
+			xor rdx, rdx
+			syscall
             
             xor r14, r14
             jmp verificaEspacoEntradaDiretorio
@@ -1025,13 +1026,13 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
     verificaEspacoEntradaRoot:
         mov rax, _read
         mov rdi, [rbp-24]
-        mov rsi, [rbp-96]
+        lea rsi, [rbp-96]
         mov rdx, 64
         syscall
         
         add r14, 64
         add r15, 64
-        
+        teste:
         cmp BYTE[rbp-96], 0
         je temEspacoParaEntrada
         cmp BYTE[rbp-76], 0
@@ -1041,6 +1042,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
         jne verificaEspacoEntradaRoot
 
     temEspacoParaEntrada:
+		sub r15, 64
         mov rax, r15                ; Retorna o ponteiro absoluto onde a entrada nova deve ser inserida
         mov rsp, rbp
         pop rbp
@@ -1056,76 +1058,76 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
     ret
 
 
-tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
-	; Perdi meu tempo a toa aqui nessa função :P
-	push rbp
-    mov rbp, rsp 
-
-    sub rsp, 8
-    mov [rbp-8], rdi
-    xor r15, r15
-
-    procuraEnterNaEntrada:
-        mov r10b, BYTE[rdi+r15]
-        inc r15
-        cmp r10b, 10
-        je encontrouEnterNaEntrada
-		cmp r10b, 0
-		je encontrouEnterNaEntrada
-		jmp procuraEnterNaEntrada
-    ; ./teste.txt
-	encontrouEnterNaEntrada:
-    dec r15
-    mov r14, r15
-    dec r14
-    procuraBarraNaEntrada:
-        mov r10b, BYTE[rdi+r14]
-		cmp r10b, 47
-        je encontrouBarraNaEntrada
-        dec r14
-        cmp r14, 0
-        je dentroPasta
-        jmp procuraBarraNaEntrada
+;tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
+;	; Perdi meu tempo a toa aqui nessa função :P
+;	push rbp
+;   mov rbp, rsp 
+;
+;   sub rsp, 8
+;   mov [rbp-8], rdi
+;   xor r15, r15
+;
+;    procuraEnterNaEntrada:
+;        mov r10b, BYTE[rdi+r15]
+;        inc r15
+;        cmp r10b, 10
+;        je encontrouEnterNaEntrada
+;		cmp r10b, 0
+;		je encontrouEnterNaEntrada
+;		jmp procuraEnterNaEntrada
+;    ; ./teste.txt
+;	encontrouEnterNaEntrada:
+;    dec r15
+;    mov r14, r15
+;    dec r14
+;    procuraBarraNaEntrada:
+;        mov r10b, BYTE[rdi+r14]
+;		cmp r10b, 47
+;        je encontrouBarraNaEntrada
+;        dec r14
+;        cmp r14, 0
+;        je dentroPasta
+;        jmp procuraBarraNaEntrada
     
-	encontrouBarraNaEntrada:
-    inc r14 
-    mov r13, r14
-    dentroPasta:
-    mov r13, r14
-    procuraExtensaoNaEntrada:
-        mov r10b, BYTE[rdi+r13]
-        inc r13	
-        cmp r10b, 46
-        je encontrouExtensaoNaEntrada
-		cmp r10b, 0
-		je erroArquivoSemExtensao
-		jmp procuraExtensaoNaEntrada
+;	encontrouBarraNaEntrada:
+;    inc r14 
+;    mov r13, r14
+;    dentroPasta:
+;    mov r13, r14
+;    procuraExtensaoNaEntrada:
+;        mov r10b, BYTE[rdi+r13]
+;        inc r13	
+;        cmp r10b, 46
+;        je encontrouExtensaoNaEntrada
+;		cmp r10b, 0
+;		je erroArquivoSemExtensao
+;		jmp procuraExtensaoNaEntrada
 		
         
-    encontrouExtensaoNaEntrada:
-    xor rbx, rbx
-    lacoPreencheBufferCaractere:
-        mov r10b, BYTE[rdi+r14]
-        mov [bufferCaracteres+rbx], r10b
-        inc rbx
-        inc r14
-        cmp r14, r15
-        jng lacoPreencheBufferCaractere
+;    encontrouExtensaoNaEntrada:
+;    xor rbx, rbx
+;    lacoPreencheBufferCaractere:
+;        mov r10b, BYTE[rdi+r14]
+;        mov [bufferCaracteres+rbx], r10b
+;        inc rbx
+;        inc r14
+;        cmp r14, r15
+;        jng lacoPreencheBufferCaractere
         
-    mov BYTE[bufferCaracteres+rbx], 0
-    mov rax, rbx 
+;    mov BYTE[bufferCaracteres+rbx], 0
+;    mov rax, rbx 
 
-    mov rsp, rbp
-    pop rbp
-    ret
+;    mov rsp, rbp
+;    pop rbp
+;    ret
 	
-	erroArquivoSemExtensao:
-	xor rax, rax
-	dec rax
+;	erroArquivoSemExtensao:
+;	xor rax, rax
+;	dec rax
 	
-	mov rsp, rbp
-    pop rbp
-    ret
+;	mov rsp, rbp
+;    pop rbp
+;    ret
 
 
 atualizaDispositivos: ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
