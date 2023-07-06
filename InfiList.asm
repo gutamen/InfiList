@@ -169,28 +169,27 @@ _start:
     mov [ponteiroDispositivo], rax
     %include "popall.asm"
 
-    %include "pushall.asm"
-    mov rax, _seek
-    mov rdi, [ponteiroDispositivo]
-    mov rsi, 0x240
-    xor rdx, rdx
-    syscall
-    
-    sub rsp, 64
-    mov rax, _read
-    mov rdi, [ponteiroDispositivo]
-    mov rsi, rsp
-    mov rdx, 64
-    syscall
+;    %include "pushall.asm"
+;    mov rax, _seek
+;    mov rdi, [ponteiroDispositivo]
+;    mov rsi, 0x240
+;    xor rdx, rdx
+;    syscall
+;    
+;    sub rsp, 64
+;    mov rax, _read
+;    mov rdi, [ponteiroDispositivo]
+;    mov rsi, rsp
+;    mov rdx, 64
+;    syscall
 
-    lea rdi, [rsp]
-    lea rsi, [testesaida]
-    lea rdx, [ponteiroDispositivo]
-    call copiaParaFora ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], long *caminhoSaidaArquivo[rsi], long *ponteiroDispositivo[rdx])
-    %include "popall.asm"
+;    lea rdi, [rsp]
+;    lea rsi, [testesaida]
+;    lea rdx, [ponteiroDispositivo]
+;    call copiaParaFora ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], long *caminhoSaidaArquivo[rsi], long *ponteiroDispositivo[rdx])
+;    %include "popall.asm"
 
-    teste:
-    jmp _end
+
     
     %include "pushall.asm"
     lea rdi, [testeArquivo]
@@ -748,7 +747,6 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 	%include "popall.asm"
 
 
-	pause: 
 
 
 
@@ -1247,7 +1245,7 @@ copiaParaFora: ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], 
     sub rsp, r15
 
 
-    lacoControiArquivoFora:
+    lacoConstroiArquivoFora:
         mov rax, _seek
         mov rdi, [rbp-24]
         mov rsi, r13
@@ -1285,7 +1283,7 @@ copiaParaFora: ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], 
         syscall
 
         mov r13, [buffer]
-        jmp lacoControiArquivoFora
+        jmp lacoConstroiArquivoFora
         
         ultimoBlocoParaEscrever:
             add r14, r15
@@ -1324,3 +1322,90 @@ copiaParaFora: ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], 
     mov rsp, rbp
     pop rbp
     ret
+
+
+criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], long *ponteiroDispositivo[rsi], char *nomeDiretorio[rdx])
+    push rbp
+    mov rbp, rsp     
+    sub rsp, 24
+    mov rax, [rdi]
+    mov [rbp-8], rax
+    mov rcx, [ponteiroRaiz]             ; Verifica se é o diretório raiz
+    xor rcx, rax
+
+    mov rbx, [rsi]
+    mov [rbp-16], rbx
+
+    mov [rbp-24], rdx
+    
+    mov rax, _seek
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-16]
+    xor rdx, rdx
+    syscall
+
+    jecxz lacoCriarSubdiretorioNaRaiz
+
+
+
+    lacoCriarSubdiretorioEmSubdiretorio:
+
+
+    lacoCriarSubdiretorioNaRaiz:
+
+    mov r15, [tamanhoBloco]
+    sub r15, 8
+    xor rdx, rdx
+    mov rax, [rbp-136]
+    div r15
+    mov r12, rax
+    cmp rdx, 0
+    je verificaEspacoSubdiretorio
+    inc r12
+	
+    mov rax, [rbp-32]
+	mov r14, [rax]
+	xor rbx, rbx
+	dec rbx
+    cmp r14, rbx
+    je erroDispositivoSemEspacoSuficiente
+    xor r13, r13
+    verificaEspacoSubdiretorio:
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, r14
+        add rsi, r15
+        xor rdx, rdx
+        syscall
+
+        mov rax, _read
+        mov rdi, [rbp-24]
+        lea rsi, [buffer]
+        mov rdx, 8
+        syscall
+
+        xor rbx, rbx
+        dec rbx
+        inc r13
+
+        mov r14, [buffer]
+        cmp r13, r12
+        je espacoSufienteAlocavel
+
+        cmp QWORD[buffer], rbx
+        je erroDispositivoSemEspacoSuficiente
+        
+        jmp verificaEspacoSubdiretorio
+
+
+
+
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+
+
+ 
