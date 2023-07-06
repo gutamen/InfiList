@@ -957,7 +957,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     ret
 
 
-procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx])
+procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx]) se modo == 0 então raiz
 	push rbp
     mov rbp, rsp 
 
@@ -981,7 +981,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaA
 
     xor r14, r14
 	mov rcx, [rbp-32]
-    jecxz verificaEspacoEntradaRoot
+    jecxz verificaEspacoEntradaRaiz
 
 	verificaEspacoEntradaDiretorio:
         mov rax, _read
@@ -1018,7 +1018,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaA
 
 
 
-    verificaEspacoEntradaRoot:
+    verificaEspacoEntradaRaiz:
         mov rax, _read
         mov rdi, [rbp-24]
         lea rsi, [rbp-96]
@@ -1033,7 +1033,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaA
         jne temEspacoParaEntrada
         cmp r14, [tamanhoBloco]
         je semEspacoParaEntrada
-        jne verificaEspacoEntradaRoot
+        jne verificaEspacoEntradaRaiz
 
     temEspacoParaEntrada:
 		sub r15, 64
@@ -1304,19 +1304,21 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
     sub rsp, 24
     mov rax, [rdi]
     mov [rbp-8], rax
-    mov rcx, [ponteiroRaiz]             ; Verifica se é o diretório raiz
-    xor rcx, rax
-
     mov rbx, [rsi]
     mov [rbp-16], rbx
-
     mov [rbp-24], rdx
     
+
     mov rax, _seek
     mov rdi, [rbp-8]
     mov rsi, [rbp-16]
     xor rdx, rdx
     syscall
+    
+    mov rax, [rbp-8]
+    mov rcx, [ponteiroRaiz]             ; Verifica se é o diretório raiz
+    xor rcx, rax
+
 
     jecxz lacoCriarSubdiretorioNaRaiz
 
@@ -1326,32 +1328,48 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
 
 
     lacoCriarSubdiretorioNaRaiz:
+        sub rsp, 16
+
+        %include "pushall.asm"
+        mov rdi, [rbp-8]
+        lea rsi, [rbp-16]
+        lea rdx, [rbp-24]
+        call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx]) se modo == 0 então é a pasta raiz
+        mov [rbp-32], rax
+    	%include "popall.asm"
         
-    %include "pushall.asm"
-    mov rdi, [rbp-8]
-    lea rsi, [rbp-16]
-    lea rdx, [rbp-24]
-    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx])
-    mov [rbp-184], rax
-	%include "popall.asm"
+        xor rbx, rbx
+        dec rbx
+        cmp rbx, [rbp-32]
+        je erroSemEntradasDisponiveis
 
 
 
+        %include "pushall.asm"
+        xor rdx, rdx
+        inc rdx
+        mov [rbp-40], rdx
+        lea rdi, [rbp-40]
+        lea rsi, [rbp-16]
+        lea rdx, [ponteiroBlocosLimpos]         ; Informação ocultada
+        call verificaEspacoEmLimpos             ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+        mov [rbp-40], rax
+        %include "popall.asm"
+        xor rbx, rbx
+        dec rbx
+        cmp rbx, [rbp-32]
+        je erroSemEspacoNoDispositivoParaSubdiretorio
 
-    %include "pushall.asm"
-    lea rdi, [rbp-136]
-    lea rsi, [rbp-24]
-    mov rdx, [rbp-32]
-    call verificaEspacoEmLimpos ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
-    mov [rbp-152], rax
-    %include "popall.asm"
-   
 
+
+    erroSemEspacoNoDispositivoParaSubdiretorio:
+    erroSemEntradasDisponiveis:
 
 
     mov rsp, rbp
     pop rbp
     ret
+
 
 verificaEspacoEmLimpos: ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
     push rbp
