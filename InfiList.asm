@@ -10,11 +10,12 @@
 %define _seek       8
 %define _close      3
 %define _fstat      4
-%define readOnly  0o    		; flag open()
-%define writeOnly 1o    			; flag open()
-%define readwrite 2o    			; flag open()
-%define openrw    102o  		; flag open()
-%define userWR    644o  		; Read+Write+Execute
+%define readOnly    0o    		; flag open()
+%define writeOnly   1o    			; flag open()
+%define readwrite   2o    			; flag open()
+%define openrw      102o  		; flag open()
+%define userWR      644o  		; Read+Write+Execute
+%define allWRE      666o
 %define _cat	  	0x20544143
 %define _ls		0x0000534c
 %define _cd		0x00204443
@@ -86,7 +87,9 @@ section .data
     testeArquivoL   : equ $-testeArquivo 
 	
 	testeChars		: db "test.txt",0
-	
+
+
+    testesaida      : db "/home/gustavo/Documentos/jamanta.txt", 0
 	beep			: db 0x07, 0
 
     finalBlocos     : dq 0xffffffffffffffff, 0
@@ -166,7 +169,28 @@ _start:
     mov [ponteiroDispositivo], rax
     %include "popall.asm"
 
+    %include "pushall.asm"
+    mov rax, _seek
+    mov rdi, [ponteiroDispositivo]
+    mov rsi, 0x240
+    xor rdx, rdx
+    syscall
+    
+    sub rsp, 64
+    mov rax, _read
+    mov rdi, [ponteiroDispositivo]
+    mov rsi, rsp
+    mov rdx, 64
+    syscall
 
+    lea rdi, [rsp]
+    lea rsi, [testesaida]
+    lea rdx, [ponteiroDispositivo]
+    call copiaParaFora ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], long *caminhoSaidaArquivo[rsi], long *ponteiroDispositivo[rdx])
+    %include "popall.asm"
+
+    teste:
+    jmp _end
     
     %include "pushall.asm"
     lea rdi, [testeArquivo]
@@ -1032,7 +1056,6 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
         
         add r14, 64
         add r15, 64
-        teste:
         cmp BYTE[rbp-96], 0
         je temEspacoParaEntrada
         cmp BYTE[rbp-76], 0
@@ -1163,6 +1186,140 @@ atualizaDispositivos: ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]
     syscall
 
     mov [ponteiroDispositivo], rax
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+copiaParaFora: ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], long *caminhoSaidaArquivo[rsi], long *ponteiroDispositivo[rdx])
+    push rbp
+    mov rbp, rsp      
+    sub rsp, 24
+    ;mov r15, [rdi]
+    mov [rbp-8], rdi
+    mov [rbp-16], rsi
+    mov r15, [rdx]
+    mov [rbp-24], r15
+    
+
+
+
+    mov rbx, [rbp-8]
+    ;mov rsi, [rbx+56]
+    mov r13, [rbx+56]
+
+    mov r14, [rbx+21]
+
+
+    ;mov rax, _seek
+    ;mov rdi, [rbp-24]
+    ;xor rdx, rdx
+    ;syscall
+
+    ;sub rsp, 64
+    ;mov rax, _read
+    ;mov rdi, [rbp-24]
+    ;mov rsi, rbp
+    ;sub rsi, 88
+    ;mov rdx, 64
+    ;syscall
+
+
+
+    mov r15, [tamanhoBloco]
+    sub r15, 8
+
+    mov rax, _open
+    mov rdi, [rbp-16]
+    mov rsi, openrw
+    mov rdx, allWRE
+    syscall                         ; Cria arquivo de saída no computador
+
+    xor rbx, rbx
+    cmp rax, rbx
+    jle erroAbrirArquivoParaCopiar
+
+    sub rsp, 8
+    mov [rbp-32], rax
+
+
+    sub rsp, r15
+
+
+    lacoControiArquivoFora:
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, r13
+        xor rdx, rdx
+        syscall
+        
+
+        sub r14, r15
+        xor rbx, rbx
+        cmp r14, rbx
+        jl ultimoBlocoParaEscrever
+
+
+
+        mov rax, _read
+        mov rdi, [rbp-24]
+        mov rsi, rbp
+        sub rsi, r15
+        sub rsi, 32
+        mov rdx, r15
+        syscall
+
+        mov rax, _write
+        mov rdi, [rbp-32]
+        mov rsi, rbp
+        sub rsi, r15
+        sub rsi, 32
+        mov rdx, r15
+        syscall
+
+        mov rax, _read
+        mov rdi, [rbp-24]
+        lea rsi, [buffer]
+        mov rdx, 8
+        syscall
+
+        mov r13, [buffer]
+        jmp lacoControiArquivoFora
+        
+        ultimoBlocoParaEscrever:
+            add r14, r15
+            xor rbx, rbx
+            cmp r14, rbx
+            je ultimoBlocoCompletamenteOcupadoParaFora
+            
+            mov rax, _read
+            mov rdi, [rbp-24]
+            mov rsi, rbp
+            sub rsi, r15
+            sub rsi, 32
+            mov rdx, r14
+            syscall
+
+            mov rax, _write
+            mov rdi, [rbp-32]
+            mov rsi, rbp
+            sub rsi, r15
+            sub rsi, 32
+            mov rdx, r14
+            syscall
+
+            mov rax, _close
+            mov rdi, [rbp-32]
+            syscall                             ; Fecha o arquivo enviado para fora
+    
+            ultimoBlocoCompletamenteOcupadoParaFora:
+            mov rsp, rbp
+            pop rbp
+            ret
+
+
+    erroAbrirArquivoParaCopiar:
 
     mov rsp, rbp
     pop rbp
