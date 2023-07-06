@@ -82,7 +82,7 @@ section .data
 	archFinish		: db 0x09, "|", 10, 0
 	archFinishL	: equ $-archFinish
 
-    testeArquivo    : db "/home/gustavo/Documentos/InfiList/teste.txt", 0
+    testeArquivo    : db "./teste.txt", 0
     testeArquivoL   : equ $-testeArquivo 
 
 	
@@ -665,8 +665,11 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     
     sub rsp, 32
     mov [rbp-8], rdi
-    mov [rbp-16], rsi
-    mov [rbp-24], rdx
+	mov r15, [rsi]
+    mov [rbp-16], r15
+	mov r15, [rdx]
+    mov [rbp-24], r15
+	;mov r15, [rcx]
     mov [rbp-32], rcx
 
     mov rax, _open
@@ -695,8 +698,8 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
     %include "pushall.asm"
     mov rdi, [rbp-8]
-    mov rsi, [rbp-16]
-    mov rdx, [rbp-24]
+    lea rsi, [rbp-16]
+    lea rdx, [rbp-24]
     xor rcx, rcx
     cmp rsi, [ponteiroRaiz]
     jne semPastaRaizParaProcurar
@@ -708,7 +711,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 	%include "popall.asm"
 
 
-   pause: 
+	pause: 
 
 
 
@@ -722,11 +725,14 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     cmp rdx, 0
     je verificaEspaco
     inc r12
-
-    mov r14, [rbp-32]
-    cmp r14, -1
+	
+    mov rax, [rbp-32]
+	mov r14, [rax]
+	xor rbx, rbx
+	dec rbx
+    cmp r14, rbx
     je erroDispositivoSemEspacoSuficiente
-    mov r13, 1
+    xor r13, r13
     verificaEspaco:
         mov rax, _seek
         mov rdi, [rbp-24]
@@ -756,18 +762,24 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
 
     espacoSufienteAlocavel:
-		mov r13, r14							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
+		mov rax, [rbp-32]
+		mov r13, [rax]							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
 		mov [buffer], r13
 		
-		mov [ponteiroBlocosLimpos], r14			; Cuidado dados ocultação de informação
+		mov [rax], r14							; Atualiza o ponteiro de blocos limpos
 		
 		dec r12									; Tirando um bloco para ajuste final
 		sub rsp, r15
 		
 		mov r14, r15
-		add r14, 136
+		add r14, 184
 		neg r14
 		
+		mov rax, _seek
+		mov rdi, [rbp-40]
+		xor rsi, rsi
+		xor rdx, rdx
+		syscall	
 		
 		
 	lacoForConstroiArquivo:
@@ -779,7 +791,8 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 	
 		mov rax, _read
 		mov rdi, [rbp-40]
-		mov rsi, [rbp+r14]
+		mov rsi, rbp
+		add rsi, r14
 		mov rdx, r15
 		syscall					
 		
@@ -788,13 +801,14 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		
 		mov rax, _write
 		mov rdi, [rbp-24]
-		mov rsi, [rbp+r14]
+		mov rsi, rbp
+		add rsi, r14
 		mov rdx, r15
 		syscall
 		
 		mov rax, _read
 		mov rdi, [rbp-24]
-		mov rsi, [buffer]
+		lea rsi, [buffer]
 		mov rdx, 8
 		syscall
 		
@@ -809,13 +823,16 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		
 		mov rax, _read
 		mov rdi, [rbp-40]
-		mov rsi, [rbp+r14]
+		mov rsi, rbp
+		add rsi, r14
 		mov rdx, [rbp-136]
 		syscall
+		teste:
 		
 		mov rax, _write
 		mov rdi, [rbp-24]
-		mov rsi, [rbp+r14]
+		mov rsi, rbp
+		add rsi, r14
 		mov rdx, [rbp-136]
 		syscall
 		
@@ -830,18 +847,28 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		xor rbx, rbx
 		dec rbx
 		mov [buffer], rbx
+
 		
 		
 		mov rax, _write
 		mov rdi, [rbp-24]
-		mov rsi, [buffer]
+		lea rsi, [buffer]
 		mov rdx, 8
 		syscall
+
 		
     
-    sub rsp, 64
+    ;sub rsp, 64
     mov r15, rbp
     sub r15, 248
+	mov QWORD[r15], 0
+	mov QWORD[r15+8], 0
+	mov QWORD[r15+16], 0
+	mov QWORD[r15+24], 0
+	mov QWORD[r15+32], 0
+	mov QWORD[r15+40], 0
+	mov QWORD[r15+48], 0
+	mov QWORD[r15+56], 0
     xor rbx, rbx
     xor rcx, rcx
     xor rdx, rdx
@@ -903,7 +930,8 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
         mov rax, _write
         mov rdi, [rbp-24]
-        mov rsi, [rbp-248]
+        mov rsi, rbp
+		sub rsi, 248
         mov rdx, 64
         syscall
     
@@ -927,8 +955,10 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 
 	sub rsp, 32
     mov [rbp-8], rdi
-    mov [rbp-16], rsi
-    mov [rbp-24], rdx	
+    mov rax, [rsi]
+	mov [rbp-16], rax
+	mov rax, [rdx]
+    mov [rbp-24], rax	
     mov [rbp-32], rcx
 	
 	mov r15, [rbp-16]
