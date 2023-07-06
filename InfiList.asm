@@ -1319,21 +1319,22 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
     mov rcx, [ponteiroRaiz]             ; Verifica se é o diretório raiz
     xor rcx, rax
 
+    
+    sub rsp, 16
+    xor rbx, rbx
+    mov [rbp-40], rbx
+    jecxz modoCriarSubdiretorio
+    inc QWORD[rbp-40]
 
-    jecxz lacoCriarSubdiretorioNaRaiz
 
 
 
-    lacoCriarSubdiretorioEmSubdiretorio:
-
-
-    lacoCriarSubdiretorioNaRaiz:
-        sub rsp, 16
+    modoCriarSubdiretorio:
 
         %include "pushall.asm"
-        mov rdi, [rbp-8]
+        lea rdi, [rbp-8]
         lea rsi, [rbp-16]
-        lea rdx, [rbp-24]
+        mov rdx, [rbp-40]
         call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx]) se modo == 0 então é a pasta raiz
         mov [rbp-32], rax
     	%include "popall.asm"
@@ -1357,10 +1358,135 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
         %include "popall.asm"
         xor rbx, rbx
         dec rbx
-        cmp rbx, [rbp-32]
+        cmp rbx, [rbp-40]
         je erroSemEspacoNoDispositivoParaSubdiretorio
 
+        sub rsp, 64
+        mov r15, rbp
+        sub r15, 104
+        xor rdx, rdx
+        xor rbx, rbx
+	    mov [r15], rbx
+    	mov [r15+8], rbx
+    	mov [r15+16], rbx
+	    mov [r15+24], rbx
+    	mov [r15+32], rbx
+	    mov [r15+40], rbx
+    	mov [r15+48], rbx
+	    mov [r15+56], rbx
+        criarEntradaParaSubdiretorio:
+            mov cl, [bufferCaracteres+rdx]		; Utilizará o buffer de caracteres corrigido do buffer do teclado
+            cmp cl, 10
+            je preencheEspacoSubdiretorio
+            and cl, 0xDF
+            mov [r15+rbx], cl
+            inc rdx
+            inc rbx
+            cmp rdx, 16
+            je preencheExtensaoNula
+            jne criarEntradaParaSubdiretorio
 
+        preencheEspacoSubdiretorio:
+            mov BYTE[r15+rbx], 32
+            inc rbx
+            cmp rbx, 16
+            jne preencheEspacoSubdiretorio
+    
+
+        
+
+        preencheExtensaoNula:
+            mov BYTE[r15+rbx], 32
+            inc rbx
+            cmp rbx, 19
+            jne preencheExtensaoNula
+
+
+            mov BYTE[r15+rbx], 0xFF
+            inc rbx
+            mov BYTE[r15+rbx], 0
+            inc rbx
+            add rbx, 8
+                                    ; Aqui deve ter o tempo de acesso
+            add rbx, 27
+            mov rax, [rbp-40]
+            mov [r15+rbx],  rax
+
+
+            mov rax, _seek
+            mov rdi, [rbp-16]
+            mov rsi, [rbp-32]
+            xor rdx, rdx
+            syscall
+
+            mov rax, _write
+            mov rdi, [rbp-16]
+            mov rsi, r15
+            mov rdx, 64
+            syscall
+
+            
+            mov rax, [tamanhoBloco]
+            xor rdx, rdx
+            mov r15, 64
+            div r15
+            mov r15, rax
+            dec r15
+            
+            mov rax, _seek
+            mov rdi, [rbp-16]
+            mov rsi, [rbp-40]
+            xor rdx, rdx
+            syscall
+            xor r14, r14
+            mov [buffer], r14
+
+            
+            limpaNovoSubdiretorio:
+                mov rax, _write      
+                mov rdi, [rbp-16]
+                lea rsi, [buffer]
+                mov rdx, 8
+                syscall
+                
+                inc r14
+                cmp r14, r15
+                je finalizarSubdiretorioComPonteiro
+
+                mov rax, _seek
+                mov rdi, [rbp-16]
+                mov rsi, 56
+                xor rdx, rdx
+                inc rdx
+                syscall
+
+
+
+            finalizarSubdiretorioComPonteiro:
+                mov rax, _seek
+                mov rdi, [rbp-16]
+                mov rsi, 56
+                xor rdx, rdx
+                inc rdx
+                syscall
+                
+                xor rbx, rbx
+                dec rbx
+                mov [buffer], rbx
+
+                mov rax, _write
+                mov rdi, [rbp-16]
+                lea rsi, [buffer]
+                mov rdx, 8
+                syscall
+
+                mov rsp, rbp
+                pop rbp
+                ret 
+
+
+
+         
 
     erroSemEspacoNoDispositivoParaSubdiretorio:
     erroSemEntradasDisponiveis:
