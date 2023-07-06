@@ -646,63 +646,6 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorio[rdi], long *t
 	mov rdx, limpaTerminalL
 	syscall                     
 
-    lacoImpressaoEntrada:
-        mov r14, [rbp-8]
-        cmp BYTE[r14+r15], 0
-        je proximaEntrada
-        mov r13, r15
-        add r13, 20
-        cmp BYTE[r14+r13], 0
-        jne proximaEntrada
-    
-        mov r13, r15
-        xor r12, r12
-        lacoImpressaoEntradaNome:
-            mov rax, _write
-            mov rdi, 1
-            mov rsi, [r14+r13]
-            mov rdx, 1
-            syscall
-
-            inc r13
-            inc r12
-            cmp r12, 16
-            je imprimePonto
-            cmp BYTE[r14+r13], 0x2e
-            je nomeNaoMaximo
-            jmp lacoImpressaoEntradaNome
-
-        nomeNaoMaximo:
-            mov r8, 16
-            sub r8, r12 
-            mov r12, 16
-            add r13, r8 
-        imprimePonto:
-            mov rax, _write
-            mov rdi, 1
-            lea rsi, [caracterPonto]
-            mov rdx, 1
-            syscall
-        lacoImpressaoEntradaExtensao:
-            mov rax, _write
-            mov rdi, 1
-            mov rsi, [r14+r13]
-            mov rdx, 1
-            syscall
-
-            inc r13
-            inc r12
-            cmp r12, 19
-            je proximaEntrada
-            cmp BYTE[r14+r13], 0x2e
-            je proximaEntradaAjuste
-            jmp lacoImpressaoEntradaExtensao
-
-    proximaEntradaAjuste:
-        mov r8, 19
-        sub r8, r12
-        add r13, r8
-    proximaEntrada:
 
 
 
