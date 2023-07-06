@@ -58,17 +58,17 @@ section .data
 	
 	trintaDois	: dq 32
 	; moldura para print
-	firstLine	: db "|", 0x09, "Nome", 0x09, 0x09, "|", 0x20, "Tipo", 0x20, "|", 0x09, "Tamanho", 0x09, 0x09, "|", 10 ,0 
-	firstLineL	: equ $-firstLine
+	primeiraLinha	: db "|", 0x09, "Nome", 0x09, 0x09, "|", 0x20, "Tipo", 0x20, "|", 0x09, "Tamanho", 0x09, 0x09, "|", 10 ,0 
+	primeiraLinhaL	: equ $-primeiraLinha
 	
-	initLine		: db "|", 0x09, 0
-	initLineL	: equ $-initLine
+	inicioLinha		: db "|", 0x20, 0
+	inicioLinhaL	: equ $-inicioLinha
 	
-	finishLine		: db "|", 0x0a, 0
-	finishLineL	: equ $-finishLine
+	finalLinha		: db "|", 0x0a, 0
+	finalLinhaL	    : equ $-finalLinha
 	
-	typeSpace	: db 0x09,"|", 0x20, 0
-	typeSpaceL	: equ $-typeSpace
+	espacoDivisor	: db 0x20, "|", 0x20, 0
+	espacoDivisorL	: equ $-espacoDivisor
 	
 	typeDir		: db "DIR", 0x20, 0
 	typeArch	: db "ARCH", 0
@@ -630,13 +630,16 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long 
 
 
 
-imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorio[rdi], long *tamanhoDiretorio[rsi])
+imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
     push rbp
     mov rbp, rsp  
     
-    sub rsp, 16    
-    mov [rbp-8], rdi
-    mov [rbp-16], rsi
+    sub rsp, 24    
+    mov rax, [rdi]
+    mov [rbp-8], rax
+    mov rbx, [rsi]
+    mov [rbp-16], rbx
+    mov [rbp-24], rdx
 
     xor r15, r15
 
@@ -645,7 +648,17 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorio[rdi], long *t
 	lea rsi, [limpaTerminal]		
 	mov rdx, limpaTerminalL
 	syscall                     
+    
+    xor rbx, rbx
+    cmp [rbp-24], rbx
+    jne modoImpressaoSubdiretorio
 
+
+    modoImpressaoRaiz:
+
+
+
+    modoImpressaoSubdiretorio:
 
 
 
