@@ -133,6 +133,17 @@ _start:
 	mov [argc], r9              ; Salvando endereço do argumento em variável
     
     
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; seção debug
+;	mov rax, [testeArquivo]
+;	mov ebx, [testeArquivo+8]
+	
+;	mov [bufferCaracteres], rax
+;	mov [bufferCaracteres+8], ebx
+;	mov BYTE[bufferCaracteres+11], 10
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;	
+	
+	
     ;mov QWORD[tamanhoBloco], 512    ; Teste de sistema
 
     ;%include "pushall.asm"
@@ -167,7 +178,7 @@ _start:
     
     %include "pushall.asm"
     lea rdi, [ponteiroDispositivo]
-    call atualizaDispositivos ; long atualizaDispositivos(char *ponteiroDispositivo[rdi]) 
+    call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
     %include "popall.asm"
 
 
@@ -258,14 +269,14 @@ formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBlo
     mov [buffer], rsi
     lea rsi, [buffer]
     mov rax, _write
-    mov rdi, [rbp-8]            ; Armazena no dispositivo o tamanho real do armazenamento 
+    mov rdi, [rbp-8]            	; Armazena no dispositivo o tamanho real do armazenamento 
     mov rdx, 8
     syscall
 
 
     mov rax, _write
     mov rdi, [rbp-8]
-    mov [buffer], r15d               ; armazenamento da quantidade de blocos formatadas no dispositivo
+    mov [buffer], r15d             	; armazenamento da quantidade de blocos formatadas no dispositivo
     lea rsi, [buffer]
     mov rdx, 4
     syscall
@@ -827,7 +838,6 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		add rsi, r14
 		mov rdx, [rbp-136]
 		syscall
-		teste:
 		
 		mov rax, _write
 		mov rdi, [rbp-24]
@@ -872,6 +882,13 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     xor rbx, rbx
     xor rcx, rcx
     xor rdx, rdx
+	
+	%include "pushall.asm"
+	mov rdi, [rbp-8]
+	call tratamentoParaCriacaoDeEntrada ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
+	%include "popall.asm"
+	
+	
     criarEntradaParaDiretorio:
         mov cl, [bufferCaracteres+rdx]
         cmp cl, 46
@@ -921,7 +938,8 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
                                     ; Aqui deve ter o tempo de acesso
         add rbx, 27
         mov [r15+rbx], r13 
-    
+		
+		teste:
         mov rax, _seek
         mov rdi, [rbp-24]
         mov rsi, [rbp-184]
@@ -1039,6 +1057,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 
 
 tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
+	; Perdi meu tempo a toa aqui nessa função :P
 	push rbp
     mov rbp, rsp 
 
@@ -1050,32 +1069,40 @@ tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *cami
         mov r10b, BYTE[rdi+r15]
         inc r15
         cmp r10b, 10
-        jne procuraEnterNaEntrada
-    
+        je encontrouEnterNaEntrada
+		cmp r10b, 0
+		je encontrouEnterNaEntrada
+		jmp procuraEnterNaEntrada
+    ; ./teste.txt
+	encontrouEnterNaEntrada:
     dec r15
     mov r14, r15
     dec r14
     procuraBarraNaEntrada:
         mov r10b, BYTE[rdi+r14]
+		cmp r10b, 47
+        je encontrouBarraNaEntrada
         dec r14
         cmp r14, 0
         je dentroPasta
-        cmp r10b, 47
-        jne procuraBarraNaEntrada
+        jmp procuraBarraNaEntrada
     
-
+	encontrouBarraNaEntrada:
     inc r14 
     mov r13, r14
-    inc r14
     dentroPasta:
     mov r13, r14
     procuraExtensaoNaEntrada:
         mov r10b, BYTE[rdi+r13]
-        inc r13
+        inc r13	
         cmp r10b, 46
-        jne procuraExtensaoNaEntrada
+        je encontrouExtensaoNaEntrada
+		cmp r10b, 0
+		je erroArquivoSemExtensao
+		jmp procuraExtensaoNaEntrada
+		
         
-    
+    encontrouExtensaoNaEntrada:
     xor rbx, rbx
     lacoPreencheBufferCaractere:
         mov r10b, BYTE[rdi+r14]
@@ -1091,17 +1118,27 @@ tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *cami
     mov rsp, rbp
     pop rbp
     ret
+	
+	erroArquivoSemExtensao:
+	xor rax, rax
+	dec rax
+	
+	mov rsp, rbp
+    pop rbp
+    ret
 
 
-atualizaDispositivos: ; long atualizaDispositivos(char *ponteiroDispositivo[rdi]) 
+atualizaDispositivos: ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
   	push rbp
     mov rbp, rsp   
     
     sub rsp, 8
-    mov [rbp-8], rdi
+	mov rax, [rdi]
+    mov [rbp-8], rax
+	
 
     mov rax, _seek
-;    mov rdi, rdi
+	mov rdi, [rbp-8]
     mov rsi, 9
     xor rdx, rdx
     syscall
