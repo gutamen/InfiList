@@ -143,14 +143,16 @@ _start:
     mov r8, [rsp]
 	mov [argv], r8
 	cmp QWORD[argv], 2        ; Verifica a quantidade de argumentos
-	;jne _end
-  
+	jl _end
+    
+
 	mov r8, rsp
 	add r8, 16
 	mov r9, [r8]
 	mov [ponteiroDispositivoNoSistema], r9              ; Salvando endereço do argumento em variável
     
-    
+    cmp QWORD[argv], 5        ; Verifica a quantidade de argumentos
+    je executarFormatacao 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; seção debug
 	mov rax, [testeChars]
@@ -164,12 +166,6 @@ _start:
 	
     ;mov QWORD[tamanhoBloco], 512    ; Teste de sistema
 
-    ;%include "pushall.asm"
-    ;mov rdi, [ponteiroDispositivoNoSiponteiroDispositivoNoSistema]
-    ;mov rsi, 0
-    ;mov rdx, 10
-    ;call formatacao             ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
-    ;%include "popall.asm"
 
 	
     %include "pushall.asm"
@@ -223,22 +219,28 @@ _start:
 			cmp DWORD[bufferTeclado], _quit
 		    je _end	
 			cmp DWORD[bufferTeclado], _cint
-		    je 	executarCopiaParaDentro
+		    je executarCopiaParaDentro
 			cmp DWORD[bufferTeclado], _cout
-			
+		    je executarCopiaParaFora	
 			cmp DWORD[bufferTeclado], _mkdr
 			
 			cmp DWORD[bufferTeclado], _dele
 			je execucaoRemocao
 			cmp DWORD[bufferTeclado], _cede
 	
-            jmp _end
+            jmp programaPrincipal
 
     execucaoRemocao:
-            
-    
         %include "pushall.asm"
-        mov rdi, 1
+        lea rsi, [bufferTeclado+5]
+        call converterCharParaLong ; long converterCharParaLong( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi]) 
+        mov [buffer], rax
+        %include "popall.asm"
+        mov rdi, [buffer]
+         
+            
+        %include "pushall.asm"
+        ;mov rdi, 1
         lea rsi, [ponteiroDiretorioAtualNoDispositivo]
         lea rdx, [ponteiroDispositivo]
         xor rcx, rcx 
@@ -327,42 +329,83 @@ _start:
 
 
     executarCopiaParaFora:
+        mov r15, 5
+        xor r14, r14
+        copiaNomeParaBufferNoFora:
+            mov al, [bufferTeclado+r15]
+            cmp al, 0x20
+            je nomeCopiadoParaBufferNoFora
+            mov [bufferCaracteres+r14], al
+            inc r14
+            inc r15
+            jmp copiaNomeParaBufferNoFora
+
+        nomeCopiadoParaBufferNoFora:
+            inc r15
+            mov BYTE[bufferCaracteres+r14], 10       
+            lea r14, [bufferTeclado+r15] 
+
+
+
+        %include "pushall.asm"
+        lea rsi, [bufferTeclado+5]
+        call converterCharParaLong ; long converterCharParaLong( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi]) 
+        mov [buffer], rax
+        %include "popall.asm"
+        mov r15, [buffer]
+
+
+        xor rcx, rcx 
+        mov rbx, [ponteiroRaiz]
+        cmp rbx, [ponteiroDiretorioAtualNoDispositivo]
+        jne copiaParaForaEmSubdiretorio
+        
+            mov rax, r15 
+            xor rdx, rdx
+            mov rbx, 64
+            mul rbx
+
+            
+
+        xor rcx, rcx
+        dec rcx
+        copiaParaForaEmSubdiretorio:
+        inc rcx
+
+        %include "pushall.asm"
+        mov rdi, [ponteiroDiretorioAtual]
+        add rdi, rax
+        mov rsi, r14
+        lea rdx, [ponteiroDispositivo]
+        call copiaParaFora ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], long *caminhoSaidaArquivo[rsi], long *ponteiroDispositivo[rdx])
+        %include "popall.asm"
+
+        jmp programaPrincipal 
+
+    executarFormatacao:
     
+        mov rdx, [rsp+32]
+        mov rsi, [rsp+40]
 
-;    %include "pushall.asm"
-;    mov rax, _seek
-;    mov rdi, [ponteiroDispositivo]
-;    mov rsi, 0x240
-;    xor rdx, rdx
-;    syscall
-;    
-;    sub rsp, 64
-;    mov rax, _read
-;    mov rdi, [ponteiroDispositivo]
-;    mov rsi, rsp
-;    mov rdx, 64
-;    syscall
+        %include "pushall.asm"
+        mov rsi, rdx
+        call converterCharParaLong ; long converterCharParaLong( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi]) 
+        mov [buffer], rax
+        %include "popall.asm"
+        mov rax, [buffer]
+            
+        %include "pushall.asm"
+        call converterCharParaLong ; long converterCharParaLong( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi]) 
+        mov [buffer], rax
+        %include "popall.asm"
+        mov rdx, [buffer]
+        mov rsi, rax
+        teste:
 
-;    lea rdi, [rsp]
-;    lea rsi, [testesaida]
-;    lea rdx, [ponteiroDispositivo]
-;    call copiaParaFora ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], long *caminhoSaidaArquivo[rsi], long *ponteiroDispositivo[rdx])
-;    %include "popall.asm"
-
-
-    
-;    %include "pushall.asm"
-;    lea rdi, [testeArquivo]
-;    lea rsi, [ponteiroRaiz]
-;    lea rdx, [ponteiroDispositivo]
-;    lea rcx, [ponteiroBlocosLimpos]
-;    call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
-;    %include "popall.asm"
-
-;    %include "pushall.asm"
-;    lea rdi, [ponteiroDispositivo]
-;    call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
-;    %include "popall.asm"
+        %include "pushall.asm"
+        mov rdi, [ponteiroDispositivoNoSistema]
+        call formatacao             ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
+        %include "popall.asm"
 
 
 _end:
@@ -375,6 +418,63 @@ _end:
     mov rdi, 0
     syscall
 
+
+converterCharParaLong: ; long converterCharParaLong( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi]) 
+    push rbp
+	mov rbp, rsp
+    mov rsp, 16
+    mov [rbp-8], rdi
+    mov [rbp-16], rsi
+    mov r15, rsi
+
+    xor r14, r14
+    dec r14
+    xor r13, r13
+    finalNumeroEspaco:
+        inc r14
+        mov al, [r15+r14]
+        cmp al, 0x20
+        je acabouConversao
+        cmp al, 0
+        jne finalNumeroEspaco
+
+    acabouConversao:
+    dec r14
+
+    xor r11, r11
+    xor r12, r12
+    xor rdx, rdx
+    xor rbx, rbx
+    inc rbx
+    converteParaLong:
+        xor rcx, rcx
+        mov cl, [r15+r14]
+        cmp cl, 0x20
+        je numeroConvertidoParaLong
+        cmp cl, 0
+        je numeroConvertidoParaLong
+        sub cl, 48
+        xor rax, rax
+        mov al, cl
+        mul rbx
+        add r11, rax
+        xor rax, rax
+        mov rax, 10
+        xor rdx, rdx
+        mul rbx
+        mov rbx, rax
+        dec r14
+
+        jmp converteParaLong
+
+
+    numeroConvertidoParaLong:
+    mov rax, r11
+        
+
+    mov rsp, rbp
+	pop rbp
+	ret
 
 %include "converteParaCaractereNoTerminal.asm"
 
@@ -641,6 +741,29 @@ formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBlo
 	mov rdx, 8
 	syscall
 
+    mov rax, _seek
+    mov rdi, [rbp-8]
+    mov rsi, [rbp-16]
+    xor rdx, rdx
+    syscall
+    
+
+    xor r15, r15
+    mov [buffer], r15
+
+    limpaBlocoRaiz:
+        mov rax, _write
+        mov rdi, [rbp-8]
+        lea rsi, [buffer]
+        mov rdx, 8
+        syscall
+
+        add r15, 8
+
+        cmp r15, [rbp-16]
+        jne limpaBlocoRaiz
+
+
     mov rax, _close
     mov rdi, [rbp-8]
     syscall
@@ -805,7 +928,6 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long 
         add rsi, r8
         mov rdx, [rbp-32]
         syscall                             		; Armazena o bloco na pilha
-        teste:
 
 		mov rbx, [ponteiroRaiz]
 		mov [ponteiroDiretorioAtualNoDispositivo], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
@@ -1145,6 +1267,8 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     		xor rdx, rdx
 		    syscall	
 		
+            cmp r12, 0
+            je unicoBlocoSuficienteParaArquivo
 		
 	lacoForConstroiArquivo:
 		mov rax, _seek
@@ -1178,7 +1302,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		
 		cmp r12, 0
 		jne lacoForConstroiArquivo
-		
+	    unicoBlocoSuficienteParaArquivo:	
 		mov rax, _seek
 		mov rdi, [rbp-24]
 		mov rsi, [buffer]
