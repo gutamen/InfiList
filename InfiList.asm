@@ -17,9 +17,15 @@
 %define userWR      644o  		; Read+Write+Execute
 %define allWRE      666o
 %define _cat	  	0x20544143
-%define _ls		0x0000534c
+%define _ls		0x0000534C
 %define _cd		0x00204443
 %define _quit	0x54495551
+%define _cout	0x54554F43
+%define _cint	0x544E4943
+%define _mkdr	0x52444B4D
+%define _cede	0x45444543
+%define _dele	0x454C4544
+
 
 section .data
     
@@ -57,31 +63,33 @@ section .data
 	tabChar	: db 0x09, 0
 	
 	trintaDois	: dq 32
+	
 	; moldura para print
-	firstLine	: db "|", 0x09, "Nome", 0x09, 0x09, "|", 0x20, "Tipo", 0x20, "|", 0x09, "Tamanho", 0x09, 0x09, "|", 10 ,0 
-	firstLineL	: equ $-firstLine
 	
-	initLine		: db "|", 0x09, 0
-	initLineL	: equ $-initLine
+	primeiraLinha	: db "|", 0x20, "Número", 0x20, "|", 0x20, "Nome", 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, "|", "Exten", "|", 0x20, "Tamanho",  10, 0
+	primeiraLinhaL	: equ $-primeiraLinha
 	
-	finishLine		: db "|", 0x0a, 0
-	finishLineL	: equ $-finishLine
+	inicioLinha		: db "|", 0x20, 0
+	inicioLinhaL	: equ $-inicioLinha
 	
-	typeSpace	: db 0x09,"|", 0x20, 0
-	typeSpaceL	: equ $-typeSpace
+	finalLinha		: db 0x0a, 0
+	finalLinhaL		: equ $-finalLinha
+	
+	espacoDivisor	: db 0x20, "|", 0x20, 0
+	espacoDivisorL	: equ $-espacoDivisor
 	
 	typeDir		: db "DIR", 0x20, 0
 	typeArch	: db "ARCH", 0
 	typeSize	: db 4
 	
 	typeFinish		: db 0x20, "|", 0x09, 0
-	typeFinishL	: equ $-typeFinish
+	typeFinishL		: equ $-typeFinish
 	
 	dirSizeChar	: db "-------", 0x09, 0x09, "|", 10, 0
 	dirSizeCharL	: equ $-dirSizeChar
 	
 	archFinish		: db 0x09, "|", 10, 0
-	archFinishL	: equ $-archFinish
+	archFinishL		: equ $-archFinish
 
     testeArquivo    : db "./teste.txt", 0
     testeArquivoL   : equ $-testeArquivo 
@@ -96,20 +104,22 @@ section .data
 
 section .bss
     
+
     tamanhoBloco            : resq 1 
     ponteiroRaiz            : resq 1
     ponteiroBlocosLimpos    : resq 1
     tamanhoArmazenamento    : resq 1
     quantidadeBlocos        : resb 6
 
-	ponteiroDiretorioAtualAbsoluto	: resq 1
-    ponteiroDiretorioAtual  		: resq 1
-    tamanhoDiretorioAtual   		: resq 1
+	ponteiroDiretorioAtualNoDispositivo	: resq 1
+    ponteiroDiretorioAtual  		    : resq 1
+    tamanhoDiretorioAtual   		    : resq 1
 
-    ponteiroDispositivo : resq 1
-    argv                : resq 1
-    argc                : resq 1
-    buffer              : resq 1  
+    ponteiroDispositivo             : resq 1
+    argv                            : resq 1
+    argc                            : resq 1
+    buffer                          : resq 1  
+    ponteiroDispositivoNoSistema    : resq 1
 
 	bufferCaracteres    : resb 512
     bufferTeclado       : resb 512
@@ -134,7 +144,7 @@ _start:
 	mov r8, rsp
 	add r8, 16
 	mov r9, [r8]
-	mov [argc], r9              ; Salvando endereço do argumento em variável
+	mov [ponteiroDispositivoNoSistema], r9              ; Salvando endereço do argumento em variável
     
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -151,15 +161,15 @@ _start:
     ;mov QWORD[tamanhoBloco], 512    ; Teste de sistema
 
     ;%include "pushall.asm"
-    ;mov rdi, [argc]
+    ;mov rdi, [ponteiroDispositivoNoSiponteiroDispositivoNoSistema]
     ;mov rsi, 0
     ;mov rdx, 10
     ;call formatacao             ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
     ;%include "popall.asm"
 
-
+	
     %include "pushall.asm"
-    mov rdi, [argc]
+    mov rdi, [ponteiroDispositivoNoSistema]
     lea rsi, [tamanhoBloco]
     lea rdx, [ponteiroRaiz]
     lea rcx, [ponteiroBlocosLimpos]
@@ -168,6 +178,58 @@ _start:
     call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
     mov [ponteiroDispositivo], rax
     %include "popall.asm"
+	
+	
+    %include "pushall.asm"
+    lea rdi, [ponteiroDispositivo]
+    xor rsi, rsi
+    lea rdx, [ponteiroRaiz]
+    lea rcx, [tamanhoBloco]
+    call carregaDiretorio  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha
+	mov [ponteiroDiretorioAtual], rax
+    %include "popall.asm"
+    mov rsp, [ponteiroDiretorioAtual]
+	
+	
+	%include "pushall.asm"
+	lea rdi, [ponteiroDiretorioAtual]
+	lea rsi, [tamanhoDiretorioAtual]
+	xor rdx, rdx
+	call imprimeDiretorio  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
+	%include "popall.asm"
+	
+	jmp _end
+	
+	programaPrincipal:
+		xor r15, r15
+		
+		captacaoDeComando:
+			mov rax, _read
+			xor rdi, rdi
+			lea rsi, [bufferTeclado+r15]
+			xor rdx, rdx
+			inc rdx
+			syscall
+			
+			cmp BYTE[bufferTeclado+r15], 10
+			je captacaoDeComando
+			
+			
+			cmp DWORD[bufferTeclado], _quit
+			
+			cmp DWORD[bufferTeclado], _cint
+			
+			cmp DWORD[bufferTeclado], _cout
+			
+			cmp DWORD[bufferTeclado], _mkdr
+			
+			cmp DWORD[bufferTeclado], _dele
+			
+			cmp DWORD[bufferTeclado], _cede
+	
+	
+	
+    
 
 ;    %include "pushall.asm"
 ;    mov rax, _seek
@@ -191,19 +253,18 @@ _start:
 
 
     
-    %include "pushall.asm"
-    lea rdi, [testeArquivo]
-    lea rsi, [ponteiroRaiz]
-    lea rdx, [ponteiroDispositivo]
-    lea rcx, [ponteiroBlocosLimpos]
-    call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
-    %include "popall.asm"
+;    %include "pushall.asm"
+;    lea rdi, [testeArquivo]
+;    lea rsi, [ponteiroRaiz]
+;    lea rdx, [ponteiroDispositivo]
+;    lea rcx, [ponteiroBlocosLimpos]
+;    call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
+;    %include "popall.asm"
 
-    
-    %include "pushall.asm"
-    lea rdi, [ponteiroDispositivo]
-    call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
-    %include "popall.asm"
+;    %include "pushall.asm"
+;    lea rdi, [ponteiroDispositivo]
+;    call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
+;    %include "popall.asm"
 
 
 _end:
@@ -217,7 +278,7 @@ _end:
     syscall
 
 
-
+%include "converteParaCaractereNoTerminal.asm"
 
 
 formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
@@ -380,6 +441,7 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     push rbp
 	mov rbp, rsp
     
+	
     sub rsp, 40
     mov [rbp-8], rsi
     mov [rbp-16], rdx
@@ -445,7 +507,9 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     
 
     mov rax, [rbp-48]           ; Retorno do ponteiro do arquivo  
-
+	
+	
+	
     mov rsp, rbp
     pop rbp
     ret
@@ -476,36 +540,40 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
 
     xor rax, rax
     dec rax
-
+	
+	
     mov rsp, rbp
     pop rbp
     ret
     
     
-carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha
+carregaDiretorio:  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha, realiza diversas alterações em variáveis globais, guarda rsp antes de chamar está função
     push rbp
 	mov rbp, rsp    
     
     sub rsp, 32
-    mov [rbp-8], rdi
+    mov rax, [rdi]
+    mov [rbp-8], rax
     mov [rbp-16], rsi
-    mov [rbp-24], rdx
-    mov [rbp-32], rcx
+    mov rbx, [rdx]
+    mov [rbp-24], rbx
+    mov rax, [rcx]
+    mov [rbp-32], rax
 
 
 
     cmp rsi, 0
-    je carregaRoot
+    je carregaDiretorioRaizNaMemoria
 
     cmp rsi, 1
     je carregaSubdiretorio 
     
 
-    carregaRoot:
-        sub rsp, [rbp-32]
+    carregaDiretorioRaizNaMemoria:
+        sub rsp, [rbp-32]                   ; Aloca o tamanho do bloco na pilha
         mov rax, _seek
         mov rdi, [rbp-8]
-        mov rsi, [ponteiroRaiz]             ; Utiliza o ponteiro para o bloco raiz para acessá-lo dado externo
+        mov rsi, [ponteiroRaiz]             ; Utiliza o ponteiro para o bloco raiz para acessá-lo, dado externo
         xor rdx, rdx
         syscall
 
@@ -514,15 +582,16 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
         mov r8, [rbp-32]
         add r8, 32
         neg r8
-        mov rsi, [rbp+r8]
+        mov rsi, rbp
+        add rsi, r8
         mov rdx, [rbp-32]
         syscall                             		; Armazena o bloco na pilha
         
 		mov rbx, [ponteiroRaiz]
-		mov [ponteiroDiretorioAtualAbsoluto], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
-        mov [ponteiroDiretorioAtual], rsp   		; Altera o ponteiro para a pilha com o diretório carregado
+		mov [ponteiroDiretorioAtualNoDispositivo], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
+        mov rax, rsp   		                            ; Salva o ponteiro para o diretório na memória
         mov r10, [rbp-32]
-        mov [tamanhoDiretorioAtual], r10    		; Altera o tamanho do diretório atual
+        mov [tamanhoDiretorioAtual], r10    		    ; Altera o tamanho do diretório atual
         mov rsp, rbp
         pop rbp
         ret
@@ -530,7 +599,7 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
 
     carregaSubdiretorio:
 		mov rbx, [rbp-24]
-		mov [ponteiroDiretorioAtualAbsoluto], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
+		mov [ponteiroDiretorioAtualNoDispositivo], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
 		
         mov rax, _seek
         mov rdi, [rbp-8]
@@ -614,81 +683,140 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroArquivo[rdi], long modo
 
 
 
-imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorio[rdi], long *tamanhoDiretorio[rsi])
+imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
     push rbp
     mov rbp, rsp  
     
-    sub rsp, 16    
-    mov [rbp-8], rdi
-    mov [rbp-16], rsi
+    sub rsp, 24    
+    mov rax, [rdi]
+    mov [rbp-8], rax
+    mov rbx, [rsi]
+    mov [rbp-16], rbx
+    mov [rbp-24], rdx
 
     xor r15, r15
-
+	
    	mov rax, _write
 	mov rdi, 1
 	lea rsi, [limpaTerminal]		
 	mov rdx, limpaTerminalL
-	syscall                     ; "Limpa" o terminal do programa
-
-    lacoImpressaoEntrada:
-        mov r14, [rbp-8]
-        cmp BYTE[r14+r15], 0
-        je proximaEntrada
-        mov r13, r15
-        add r13, 20
-        cmp BYTE[r14+r13], 0
-        jne proximaEntrada
+	syscall                     
     
-        mov r13, r15
-        xor r12, r12
-        lacoImpressaoEntradaNome:
-            mov rax, _write
-            mov rdi, 1
-            mov rsi, [r14+r13]
-            mov rdx, 1
-            syscall
+    xor rbx, rbx
+    cmp [rbp-24], rbx
+    jne modoImpressaoSubdiretorio
 
-            inc r13
-            inc r12
-            cmp r12, 16
-            je imprimePonto
-            cmp BYTE[r14+r13], 0x2e
-            je nomeNaoMaximo
-            jmp lacoImpressaoEntradaNome
+	
+    modoImpressaoRaiz:
+	
+		mov rax, _write
+		mov rdi, 1
+		lea rsi, [primeiraLinha]		
+		mov rdx, primeiraLinhaL
+		syscall  
+		
+		mov r15, [rbp-8]
+		xor r14, r14
+		
+		;xor rdx, rdx
+		;mov rax, [rbp-16]
+		;xor r13, r13
+		;mov r13, 64
+		;div r13
+		;mov r13, rax					; Quantidade de entradas
+		
+		xor r13, r13
+		
+		lacoImpressaoRaiz:
+			mov r12, r14
+			mov cl, [r15+r12]
+			add r12, 20
+			cmp cl, 0
+			je proximaEntradaRaiz
+			mov cl, [r15+r12]
+			cmp cl, 0
+			jne  proximaEntradaRaiz
+			
+			sub r12, 20
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [inicioLinha]
+			mov rdx, inicioLinhaL
+			syscall
+			
+			%include "pushall.asm"
+			mov rdi, r13
+			lea rsi, [bufferTeclado]
+			xor rdx, rdx
+			inc rdx
+			xor rcx, rcx
+			inc rcx
+			inc rcx
+			inc rcx
+			inc rcx
+			call converteParaCaractereNoTerminal ; long converteParaCaractereNoTerminal( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi], long modo[rdx], <long quantosImprime[rcx]>) retorna o tamanho que a string de caracteres ficou
+			%include "popall.asm"
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [espacoDivisor]
+			mov rdx, espacoDivisorL
+			syscall
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [r15+r12]
+			mov rdx, 16
+			syscall
+			
+			add r12, 16
+			
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [espacoDivisor]
+			mov rdx, espacoDivisorL
+			syscall
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [r15+r12]
+			mov rdx, 3
+			syscall
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [espacoDivisor]
+			mov rdx, espacoDivisorL
+			syscall
+			
+			add r12, 5
+			%include "pushall.asm"
+			mov rdi, [r15+r12]
+			lea rsi, [bufferTeclado]
+			xor rdx, rdx
+			call converteParaCaractereNoTerminal ; long converteParaCaractereNoTerminal( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi], long modo[rdx], <long quantosImprime[rcx]>) retorna o tamanho que a string de caracteres ficou
+			%include "popall.asm"
+			
+					
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [finalLinha]
+			mov rdx, finalLinhaL
+			syscall
+			
 
-        nomeNaoMaximo:
-            mov r8, 16
-            sub r8, r12 
-            mov r12, 16
-            add r13, r8 
-        imprimePonto:
-            mov rax, _write
-            mov rdi, 1
-            lea rsi, [caracterPonto]
-            mov rdx, 1
-            syscall
-        lacoImpressaoEntradaExtensao:
-            mov rax, _write
-            mov rdi, 1
-            mov rsi, [r14+r13]
-            mov rdx, 1
-            syscall
+		proximaEntradaRaiz:
+			inc r13
+			add r14, 64
+			cmp r14, [rbp-16]
+			je fimImpressaoDiretorio
+			jmp lacoImpressaoRaiz
 
-            inc r13
-            inc r12
-            cmp r12, 19
-            je proximaEntrada
-            cmp BYTE[r14+r13], 0x2e
-            je proximaEntradaAjuste
-            jmp lacoImpressaoEntradaExtensao
+    modoImpressaoSubdiretorio:
 
-    proximaEntradaAjuste:
-        mov r8, 19
-        sub r8, r12
-        add r13, r8
-    proximaEntrada:
-
-
+	fimImpressaoDiretorio:
 
     mov rsp, rbp
     pop rbp
@@ -732,88 +860,61 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 
 
     %include "pushall.asm"
-    mov rdi, [rbp-8]
-    lea rsi, [rbp-16]
-    lea rdx, [rbp-24]
-    xor rcx, rcx
-	mov rax, [rsi]
+    lea rdi, [rbp-16]
+    lea rsi, [rbp-24]
+    xor rdx, rdx
+	mov rax, [rdi]
     cmp rax, [ponteiroRaiz]
     jne semPastaRaizParaProcurar
-    dec rcx
+        dec rdx
     semPastaRaizParaProcurar:
-    inc rcx
-    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
+    inc rdx
+    call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx])
     mov [rbp-184], rax
 	%include "popall.asm"
 
 
 
 
-
+    %include "pushall.asm"
+    lea rdi, [rbp-136]
+    lea rsi, [rbp-24]
+    mov rdx, [rbp-32]
+    call verificaEspacoEmLimpos ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+    mov [rbp-152], rax
+    %include "popall.asm"
     
-    mov r15, [tamanhoBloco]
-    sub r15, 8
-    xor rdx, rdx
-    mov rax, [rbp-136]
-    div r15
-    mov r12, rax
-    cmp rdx, 0
-    je verificaEspaco
-    inc r12
-	
-    mov rax, [rbp-32]
-	mov r14, [rax]
-	xor rbx, rbx
-	dec rbx
-    cmp r14, rbx
+    xor rbx, rbx
+    dec rbx
+    cmp rbx, [rbp-152]
     je erroDispositivoSemEspacoSuficiente
-    xor r13, r13
-    verificaEspaco:
-        mov rax, _seek
-        mov rdi, [rbp-24]
-        mov rsi, r14
-        add rsi, r15
-        xor rdx, rdx
-        syscall
+    
+        espacoSufienteAlocavel:
+		    mov rax, [rbp-32]
+		    mov r13, [rax]							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
+	    	mov [buffer], r13
+	        
+            mov r14, [rbp-152]
+    		mov [rax], r14							; Atualiza o ponteiro de blocos limpos
+		    dec r12									; Tirando um bloco para ajuste final
+            xor rdx, rdx
+            mov rax, [rbp-136]
+            div QWORD[tamanhoBloco]
 
-        mov rax, _read
-        mov rdi, [rbp-24]
-        lea rsi, [buffer]
-        mov rdx, 8
-        syscall
-
-        xor rbx, rbx
-        dec rbx
-        inc r13
-
-        mov r14, [buffer]
-        cmp r13, r12
-        je espacoSufienteAlocavel
-
-        cmp QWORD[buffer], rbx
-        je erroDispositivoSemEspacoSuficiente
-        
-        jmp verificaEspaco
-
-
-    espacoSufienteAlocavel:
-		mov rax, [rbp-32]
-		mov r13, [rax]							; Registrador R13 com ponteiro inicial do arquivo no sistema de arquivos
-		mov [buffer], r13
+            mov r12, rax
+	        mov r15, [tamanhoBloco]
+            sub r15, 8
+            sub rsp, r15
 		
-		mov [rax], r14							; Atualiza o ponteiro de blocos limpos
-		dec r12									; Tirando um bloco para ajuste final
-		sub rsp, r15
+    		mov r14, r15
+		    add r14, 184
+	    	neg r14
 		
-		mov r14, r15
-		add r14, 184
-		neg r14
-		
-		mov rax, _seek
-		mov rdi, [rbp-40]
-		xor rsi, rsi
-		xor rdx, rdx
-		syscall	
+    		mov rax, _seek
+    		mov rdi, [rbp-40]
+    		xor rsi, rsi
+    		xor rdx, rdx
+		    syscall	
 		
 		
 	lacoForConstroiArquivo:
@@ -829,7 +930,7 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
 		add rsi, r14
 		mov rdx, r15
 		syscall					
-		
+
 		dec r12
 		sub [rbp-136], r15
 		
@@ -984,17 +1085,17 @@ copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *past
     ret
 
 
-procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], int modo[rcx])
+procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx]) se modo == 0 então raiz
 	push rbp
     mov rbp, rsp 
 
 	sub rsp, 32
-    mov [rbp-8], rdi
-    mov rax, [rsi]
+    ;mov [rbp-8], rdi
+    mov rax, [rdi]
 	mov [rbp-16], rax
-	mov rax, [rdx]
+	mov rax, [rsi]
     mov [rbp-24], rax	
-    mov [rbp-32], rcx
+    mov [rbp-32], rdx
 	
 	mov r15, [rbp-16]
 	
@@ -1008,7 +1109,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 
     xor r14, r14
 	mov rcx, [rbp-32]
-    jecxz verificaEspacoEntradaRoot
+    jecxz verificaEspacoEntradaRaiz
 
 	verificaEspacoEntradaDiretorio:
         mov rax, _read
@@ -1045,7 +1146,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 
 
 
-    verificaEspacoEntradaRoot:
+    verificaEspacoEntradaRaiz:
         mov rax, _read
         mov rdi, [rbp-24]
         lea rsi, [rbp-96]
@@ -1060,7 +1161,7 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
         jne temEspacoParaEntrada
         cmp r14, [tamanhoBloco]
         je semEspacoParaEntrada
-        jne verificaEspacoEntradaRoot
+        jne verificaEspacoEntradaRaiz
 
     temEspacoParaEntrada:
 		sub r15, 64
@@ -1077,78 +1178,6 @@ procuraEspacoEntradaDiretorio:	; long procuraEspacoEntradaDiretorio(char *arquiv
 	mov rsp, rbp
     pop rbp
     ret
-
-
-;tratamentoParaCriacaoDeEntrada: ; long tratamentoParaCriacaoDeEntrada(char *caminhoArquivo[rdi]) usa o bufferCaracteres para criar a entrada retorna o tamanho do nome do arquivo
-;	; Perdi meu tempo a toa aqui nessa função :P
-;	push rbp
-;   mov rbp, rsp 
-;
-;   sub rsp, 8
-;   mov [rbp-8], rdi
-;   xor r15, r15
-;
-;    procuraEnterNaEntrada:
-;        mov r10b, BYTE[rdi+r15]
-;        inc r15
-;        cmp r10b, 10
-;        je encontrouEnterNaEntrada
-;		cmp r10b, 0
-;		je encontrouEnterNaEntrada
-;		jmp procuraEnterNaEntrada
-;    ; ./teste.txt
-;	encontrouEnterNaEntrada:
-;    dec r15
-;    mov r14, r15
-;    dec r14
-;    procuraBarraNaEntrada:
-;        mov r10b, BYTE[rdi+r14]
-;		cmp r10b, 47
-;        je encontrouBarraNaEntrada
-;        dec r14
-;        cmp r14, 0
-;        je dentroPasta
-;        jmp procuraBarraNaEntrada
-    
-;	encontrouBarraNaEntrada:
-;    inc r14 
-;    mov r13, r14
-;    dentroPasta:
-;    mov r13, r14
-;    procuraExtensaoNaEntrada:
-;        mov r10b, BYTE[rdi+r13]
-;        inc r13	
-;        cmp r10b, 46
-;        je encontrouExtensaoNaEntrada
-;		cmp r10b, 0
-;		je erroArquivoSemExtensao
-;		jmp procuraExtensaoNaEntrada
-		
-        
-;    encontrouExtensaoNaEntrada:
-;    xor rbx, rbx
-;    lacoPreencheBufferCaractere:
-;        mov r10b, BYTE[rdi+r14]
-;        mov [bufferCaracteres+rbx], r10b
-;        inc rbx
-;        inc r14
-;        cmp r14, r15
-;        jng lacoPreencheBufferCaractere
-        
-;    mov BYTE[bufferCaracteres+rbx], 0
-;    mov rax, rbx 
-
-;    mov rsp, rbp
-;    pop rbp
-;    ret
-	
-;	erroArquivoSemExtensao:
-;	xor rax, rax
-;	dec rax
-	
-;	mov rsp, rbp
-;    pop rbp
-;    ret
 
 
 atualizaDispositivos: ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
@@ -1327,59 +1356,246 @@ copiaParaFora: ; long copiaParaFora(long *ponteiroEntradaArquivoEmMemoria[rdi], 
 criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], long *ponteiroDispositivo[rsi], char *nomeDiretorio[rdx])
     push rbp
     mov rbp, rsp     
+
     sub rsp, 24
     mov rax, [rdi]
     mov [rbp-8], rax
-    mov rcx, [ponteiroRaiz]             ; Verifica se é o diretório raiz
-    xor rcx, rax
-
     mov rbx, [rsi]
     mov [rbp-16], rbx
-
     mov [rbp-24], rdx
     
+
     mov rax, _seek
     mov rdi, [rbp-8]
     mov rsi, [rbp-16]
     xor rdx, rdx
     syscall
+    
+    mov rax, [rbp-8]
+    mov rcx, [ponteiroRaiz]             ; Verifica se é o diretório raiz
+    xor rcx, rax
 
-    jecxz lacoCriarSubdiretorioNaRaiz
+    
+    sub rsp, 16
+    xor rbx, rbx
+    mov [rbp-40], rbx
+    jecxz modoCriarSubdiretorio
+    inc QWORD[rbp-40]
 
 
 
-    lacoCriarSubdiretorioEmSubdiretorio:
+
+    modoCriarSubdiretorio:
+
+        %include "pushall.asm"
+        lea rdi, [rbp-8]
+        lea rsi, [rbp-16]
+        mov rdx, [rbp-40]
+        call procuraEspacoEntradaDiretorio	; long procuraEspacoEntradaDiretorio(long *pastaAtual[rdi], long *ponteiroDispositivo[rsi], int modo[rdx]) se modo == 0 então é a pasta raiz
+        mov [rbp-32], rax
+    	%include "popall.asm"
+        
+        xor rbx, rbx
+        dec rbx
+        cmp rbx, [rbp-32]
+        je erroSemEntradasDisponiveis
 
 
-    lacoCriarSubdiretorioNaRaiz:
+
+        %include "pushall.asm"
+        xor rdx, rdx
+        inc rdx
+        mov [rbp-40], rdx
+        lea rdi, [rbp-40]
+        lea rsi, [rbp-16]
+        lea rdx, [ponteiroBlocosLimpos]         ; Informação ocultada
+        call verificaEspacoEmLimpos             ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+        mov [rbp-40], rax
+        %include "popall.asm"
+        xor rbx, rbx
+        dec rbx
+        cmp rbx, [rbp-40]
+        je erroSemEspacoNoDispositivoParaSubdiretorio
+
+        sub rsp, 64
+        mov r15, rbp
+        sub r15, 104
+        xor rdx, rdx
+        xor rbx, rbx
+	    mov [r15], rbx
+    	mov [r15+8], rbx
+    	mov [r15+16], rbx
+	    mov [r15+24], rbx
+    	mov [r15+32], rbx
+	    mov [r15+40], rbx
+    	mov [r15+48], rbx
+	    mov [r15+56], rbx
+        criarEntradaParaSubdiretorio:
+            mov cl, [bufferCaracteres+rdx]		; Utilizará o buffer de caracteres corrigido do buffer do teclado
+            cmp cl, 10
+            je preencheEspacoSubdiretorio
+            and cl, 0xDF
+            mov [r15+rbx], cl
+            inc rdx
+            inc rbx
+            cmp rdx, 16
+            je preencheExtensaoNula
+            jne criarEntradaParaSubdiretorio
+
+        preencheEspacoSubdiretorio:
+            mov BYTE[r15+rbx], 32
+            inc rbx
+            cmp rbx, 16
+            jne preencheEspacoSubdiretorio
+    
+
+        
+
+        preencheExtensaoNula:
+            mov BYTE[r15+rbx], 32
+            inc rbx
+            cmp rbx, 19
+            jne preencheExtensaoNula
+
+
+            mov BYTE[r15+rbx], 0xFF
+            inc rbx
+            mov BYTE[r15+rbx], 0
+            inc rbx
+            add rbx, 8
+                                    ; Aqui deve ter o tempo de acesso
+            add rbx, 27
+            mov rax, [rbp-40]
+            mov [r15+rbx],  rax
+
+
+            mov rax, _seek
+            mov rdi, [rbp-16]
+            mov rsi, [rbp-32]
+            xor rdx, rdx
+            syscall
+
+            mov rax, _write
+            mov rdi, [rbp-16]
+            mov rsi, r15
+            mov rdx, 64
+            syscall
+
+            
+            mov rax, [tamanhoBloco]
+            xor rdx, rdx
+            mov r15, 64
+            div r15
+            mov r15, rax
+            dec r15
+            
+            mov rax, _seek
+            mov rdi, [rbp-16]
+            mov rsi, [rbp-40]
+            xor rdx, rdx
+            syscall
+            xor r14, r14
+            mov [buffer], r14
+
+            
+            limpaNovoSubdiretorio:
+                mov rax, _write      
+                mov rdi, [rbp-16]
+                lea rsi, [buffer]
+                mov rdx, 8
+                syscall
+                
+                inc r14
+                cmp r14, r15
+                je finalizarSubdiretorioComPonteiro
+
+                mov rax, _seek
+                mov rdi, [rbp-16]
+                mov rsi, 56
+                xor rdx, rdx
+                inc rdx
+                syscall
+
+
+
+            finalizarSubdiretorioComPonteiro:
+                mov rax, _seek
+                mov rdi, [rbp-16]
+                mov rsi, 56
+                xor rdx, rdx
+                inc rdx
+                syscall
+                
+                xor rbx, rbx
+                dec rbx
+                mov [buffer], rbx
+
+                mov rax, _write
+                mov rdi, [rbp-16]
+                lea rsi, [buffer]
+                mov rdx, 8
+                syscall
+
+                mov rsp, rbp
+                pop rbp
+                ret 
+
+
+
+         
+
+    erroSemEspacoNoDispositivoParaSubdiretorio:
+    erroSemEntradasDisponiveis:
+
+
+    mov rsp, rbp
+    pop rbp
+    ret
+
+
+verificaEspacoEmLimpos: ; long verificaEspacoEmLimpos(long *tamanhoArquivo[rdi], long *ponteiroDispositivo[rsi], long *ponteiroBlocosLimpos[rdx])
+    push rbp
+    mov rbp, rsp  
+    
+    sub rsp, 24
+    mov rax, [rdi]
+    mov [rbp-8], rax
+    mov rbx, [rsi]
+    mov [rbp-16], rbx
+    mov [rbp-24], rdx
+
+
+
 
     mov r15, [tamanhoBloco]
     sub r15, 8
     xor rdx, rdx
-    mov rax, [rbp-136]
+    mov rax, [rbp-8]
     div r15
     mov r12, rax
-    cmp rdx, 0
-    je verificaEspacoSubdiretorio
+    xor rbx, rbx
+    cmp rdx, rbx
+    je lacoVerificaEspacosEmLimpos
     inc r12
-	
-    mov rax, [rbp-32]
-	mov r14, [rax]
+    
+    
+    mov rbx, [rbp-24]
+    mov r14, [rbx]
 	xor rbx, rbx
 	dec rbx
     cmp r14, rbx
-    je erroDispositivoSemEspacoSuficiente
+    je erroNaVerificacaoSemEspaco
     xor r13, r13
-    verificaEspacoSubdiretorio:
+    lacoVerificaEspacosEmLimpos: 
         mov rax, _seek
-        mov rdi, [rbp-24]
+        mov rdi, [rbp-16]
         mov rsi, r14
         add rsi, r15
         xor rdx, rdx
         syscall
 
         mov rax, _read
-        mov rdi, [rbp-24]
+        mov rdi, [rbp-16]
         lea rsi, [buffer]
         mov rdx, 8
         syscall
@@ -1390,22 +1606,24 @@ criarSubdiretorio: ; long criarSubdiretorio(long *ponteiroDiretorioAtual[rdi], l
 
         mov r14, [buffer]
         cmp r13, r12
-        je espacoSufienteAlocavel
+        je verificacaoBemSucedida                   ; Quando for verdadeiro o local que o ponteiro de blocs limpos deve se posicionar estará disponível na memória [buffer]
 
         cmp QWORD[buffer], rbx
-        je erroDispositivoSemEspacoSuficiente
+        je erroNaVerificacaoSemEspaco
         
-        jmp verificaEspacoSubdiretorio
+        jmp lacoVerificaEspacosEmLimpos
 
 
+    verificacaoBemSucedida:
+        mov rax, [buffer]
 
+        mov rsp, rbp
+        pop rbp
+        ret
+    erroNaVerificacaoSemEspaco:
 
+    mov rax, [buffer]
 
     mov rsp, rbp
     pop rbp
     ret
-
-
-
-
- 
