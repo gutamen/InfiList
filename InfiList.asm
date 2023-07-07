@@ -17,9 +17,15 @@
 %define userWR      644o  		; Read+Write+Execute
 %define allWRE      666o
 %define _cat	  	0x20544143
-%define _ls		0x0000534c
+%define _ls		0x0000534C
 %define _cd		0x00204443
 %define _quit	0x54495551
+%define _cout	0x54554F43
+%define _cint	0x544E4943
+%define _mkdr	0x52444B4D
+%define _cede	0x45444543
+%define _dele	0x454C4544
+
 
 section .data
     
@@ -60,13 +66,13 @@ section .data
 	
 	; moldura para print
 	
-	primeiraLinha	: db "|", 0x20, "Nome", 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, "|", "Exten", "|", 0x20, "|", "Tamanho", 0x09, 0x09, "|", 10 ,0 
+	primeiraLinha	: db "|", 0x20, "Número", 0x20, "|", 0x20, "Nome", 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, "|", "Exten", "|", 0x20, "Tamanho",  10, 0
 	primeiraLinhaL	: equ $-primeiraLinha
 	
 	inicioLinha		: db "|", 0x20, 0
 	inicioLinhaL	: equ $-inicioLinha
 	
-	finalLinha		: db 0x20, "|", 0x0a, 0
+	finalLinha		: db 0x0a, 0
 	finalLinhaL		: equ $-finalLinha
 	
 	espacoDivisor	: db 0x20, "|", 0x20, 0
@@ -183,7 +189,7 @@ _start:
 	mov [ponteiroDiretorioAtual], rax
     %include "popall.asm"
     mov rsp, [ponteiroDiretorioAtual]
-	teste4:
+	
 	
 	%include "pushall.asm"
 	lea rdi, [ponteiroDiretorioAtual]
@@ -191,6 +197,38 @@ _start:
 	xor rdx, rdx
 	call imprimeDiretorio  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
 	%include "popall.asm"
+	
+	jmp _end
+	
+	programaPrincipal:
+		xor r15, r15
+		
+		captacaoDeComando:
+			mov rax, _read
+			xor rdi, rdi
+			lea rsi, [bufferTeclado+r15]
+			xor rdx, rdx
+			inc rdx
+			syscall
+			
+			cmp BYTE[bufferTeclado+r15], 10
+			je captacaoDeComando
+			
+			
+			cmp DWORD[bufferTeclado], _quit
+			
+			cmp DWORD[bufferTeclado], _cint
+			
+			cmp DWORD[bufferTeclado], _cout
+			
+			cmp DWORD[bufferTeclado], _mkdr
+			
+			cmp DWORD[bufferTeclado], _dele
+			
+			cmp DWORD[bufferTeclado], _cede
+	
+	
+	
     
 
 ;    %include "pushall.asm"
@@ -240,7 +278,7 @@ _end:
     syscall
 
 
-
+%include "converteParaCaractereNoTerminal.asm"
 
 
 formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
@@ -680,14 +718,14 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
 		mov r15, [rbp-8]
 		xor r14, r14
 		
-		xor rdx, rdx
-		mov rax, [rbp-16]
-		teste:
+		;xor rdx, rdx
+		;mov rax, [rbp-16]
+		;xor r13, r13
+		;mov r13, 64
+		;div r13
+		;mov r13, rax					; Quantidade de entradas
+		
 		xor r13, r13
-		mov r13, 64
-		div r13
-		teste2:
-		mov r13, rax					; Quantidade de entradas
 		
 		lacoImpressaoRaiz:
 			mov r12, r14
@@ -705,6 +743,25 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
 			mov rdi, 1
 			lea rsi, [inicioLinha]
 			mov rdx, inicioLinhaL
+			syscall
+			
+			%include "pushall.asm"
+			mov rdi, r13
+			lea rsi, [bufferTeclado]
+			xor rdx, rdx
+			inc rdx
+			xor rcx, rcx
+			inc rcx
+			inc rcx
+			inc rcx
+			inc rcx
+			call converteParaCaractereNoTerminal ; long converteParaCaractereNoTerminal( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi], long modo[rdx], <long quantosImprime[rcx]>) retorna o tamanho que a string de caracteres ficou
+			%include "popall.asm"
+			
+			mov rax, _write
+			mov rdi, 1
+			lea rsi, [espacoDivisor]
+			mov rdx, espacoDivisorL
 			syscall
 			
 			mov rax, _write
@@ -730,23 +787,28 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
 			
 			mov rax, _write
 			mov rdi, 1
+			lea rsi, [espacoDivisor]
+			mov rdx, espacoDivisorL
+			syscall
+			
+			add r12, 5
+			%include "pushall.asm"
+			mov rdi, [r15+r12]
+			lea rsi, [bufferTeclado]
+			xor rdx, rdx
+			call converteParaCaractereNoTerminal ; long converteParaCaractereNoTerminal( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi], long modo[rdx], <long quantosImprime[rcx]>) retorna o tamanho que a string de caracteres ficou
+			%include "popall.asm"
+			
+					
+			mov rax, _write
+			mov rdi, 1
 			lea rsi, [finalLinha]
 			mov rdx, finalLinhaL
 			syscall
 			
-			;mov rax, _write
-			;mov rdi, 1
-			;lea rsi, [inicioLinha]
-			;mov rdx, inicioLinhaL
-			;syscall
-			
-			;mov rax, _write
-			;mov rdi, 1
-			;lea rsi, [inicioLinha]
-			;mov rdx, inicioLinhaL
-			;syscall
 
 		proximaEntradaRaiz:
+			inc r13
 			add r14, 64
 			cmp r14, [rbp-16]
 			je fimImpressaoDiretorio
