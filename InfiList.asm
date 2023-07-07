@@ -123,6 +123,7 @@ section .bss
     argc                            : resq 1
     buffer                          : resq 1  
     ponteiroDispositivoNoSistema    : resq 1
+    ponteiroPilhaAntigo             : resq 1
 
 	bufferCaracteres    : resb 512
     bufferTeclado       : resb 512
@@ -182,7 +183,7 @@ _start:
     mov [ponteiroDispositivo], rax
     %include "popall.asm"
 	
-	
+    mov [ponteiroPilhaAntigo], rsp	
     %include "pushall.asm"
     lea rdi, [ponteiroDispositivo]
     xor rsi, rsi
@@ -193,7 +194,6 @@ _start:
     %include "popall.asm"
     mov rsp, [ponteiroDiretorioAtual]
 	
-	
 	%include "pushall.asm"
 	lea rdi, [ponteiroDiretorioAtual]
 	lea rsi, [tamanhoDiretorioAtual]
@@ -201,37 +201,132 @@ _start:
 	call imprimeDiretorio  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
 	%include "popall.asm"
 	
-	jmp _end
+	;jmp _end
 	
 	programaPrincipal:
 		xor r15, r15
-		
+	    dec r15	
 		captacaoDeComando:
+            inc r15
 			mov rax, _read
 			xor rdi, rdi
 			lea rsi, [bufferTeclado+r15]
 			xor rdx, rdx
 			inc rdx
 			syscall
+            
 			
 			cmp BYTE[bufferTeclado+r15], 10
-			je captacaoDeComando
-			
+			jne captacaoDeComando
+		    mov BYTE[bufferTeclado+r15], 0	
 			
 			cmp DWORD[bufferTeclado], _quit
-			
+		    je _end	
 			cmp DWORD[bufferTeclado], _cint
-			
+		    je 	executarCopiaParaDentro
 			cmp DWORD[bufferTeclado], _cout
 			
 			cmp DWORD[bufferTeclado], _mkdr
 			
 			cmp DWORD[bufferTeclado], _dele
-			
+			je execucaoRemocao
 			cmp DWORD[bufferTeclado], _cede
 	
-	
-	
+            jmp _end
+
+    execucaoRemocao:
+            
+    
+        %include "pushall.asm"
+        mov rdi, 1
+        lea rsi, [ponteiroDiretorioAtualNoDispositivo]
+        lea rdx, [ponteiroDispositivo]
+        xor rcx, rcx 
+        mov rbx, [ponteiroDiretorioAtualNoDispositivo]
+        cmp rbx, [ponteiroRaiz]
+        jne vereificaDiretorioRaizParaExclusao
+        dec rcx 
+        vereificaDiretorioRaizParaExclusao:
+        inc rcx
+        call excluiArquivoDoSistema ; void excluiArquivoDoSistema(long tagArquivo[rdi], long *ponteiroDiretorio[rsi], long *ponteiroDispositivo[rdx], long modo[rcx])
+        %include "popall.asm"
+
+        %include "pushall.asm"
+        lea rdi, [ponteiroDispositivo]
+        call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
+        %include "popall.asm"
+
+        mov rsp, [ponteiroPilhaAntigo]
+        %include "pushall.asm"
+        lea rdi, [ponteiroDispositivo]
+        xor rsi, rsi
+        lea rdx, [ponteiroDiretorioAtualNoDispositivo]
+        lea rcx, [tamanhoBloco]
+        call carregaDiretorio  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha
+    	mov [ponteiroDiretorioAtual], rax
+        %include "popall.asm"
+        mov rsp, [ponteiroDiretorioAtual]
+       
+        
+        %include "pushall.asm"
+	    lea rdi, [ponteiroDiretorioAtual]
+	    lea rsi, [tamanhoDiretorioAtual]
+	    xor rdx, rdx
+	    call imprimeDiretorio  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
+	    %include "popall.asm"
+
+        jmp programaPrincipal	
+    
+    executarCopiaParaDentro:
+        mov r15, 5
+        xor r14, r14
+        copiaNomeParaBuffer:
+            mov al, [bufferTeclado+r15]
+            cmp al, 0x20
+            je nomeCopiadoParaBuffer
+            mov [bufferCaracteres+r14], al
+            inc r14
+            inc r15
+            jmp copiaNomeParaBuffer
+
+        nomeCopiadoParaBuffer:
+            inc r15
+            mov BYTE[bufferCaracteres+r14], 10
+
+        %include "pushall.asm"
+        lea rdi, [bufferTeclado+r15]
+        lea rsi, [ponteiroDiretorioAtualNoDispositivo]
+        lea rdx, [ponteiroDispositivo]
+        lea rcx, [ponteiroBlocosLimpos]
+        call copiaParaDentro ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
+        %include "popall.asm"
+
+        %include "pushall.asm"
+        lea rdi, [ponteiroDispositivo]
+        call atualizaDispositivos ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]) 
+        %include "popall.asm"
+
+        mov rsp, [ponteiroPilhaAntigo]
+        %include "pushall.asm"
+        lea rdi, [ponteiroDispositivo]
+        xor rsi, rsi
+        lea rdx, [ponteiroDiretorioAtualNoDispositivo]
+        lea rcx, [tamanhoBloco]
+        call carregaDiretorio  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha
+    	mov [ponteiroDiretorioAtual], rax
+        %include "popall.asm"
+        mov rsp, [ponteiroDiretorioAtual]
+
+        %include "pushall.asm"
+	    lea rdi, [ponteiroDiretorioAtual]
+	    lea rsi, [tamanhoDiretorioAtual]
+	    xor rdx, rdx
+	    call imprimeDiretorio  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
+	    %include "popall.asm"
+        jmp programaPrincipal
+
+
+    executarCopiaParaFora:
     
 
 ;    %include "pushall.asm"
@@ -350,7 +445,7 @@ excluiArquivoDoSistema: ; void excluiArquivoDoSistema(long tagArquivo[rdi], long
         mov rsi, [rbp-40]
         xor rdx, rdx
         syscall
-        
+
         mov r15, [tamanhoBloco]
         sub r15, 8
         ;sub rsp, r15
@@ -369,25 +464,26 @@ excluiArquivoDoSistema: ; void excluiArquivoDoSistema(long tagArquivo[rdi], long
             mov rdi, [rbp-24]
             lea rsi, [buffer]
             mov rdx, 8
-
-
+            syscall
+    
             cmp [buffer], rbx
-            je encontrouFinalArquivo
+            jne procuraFinalDoArquivoParaExclusao
 
         encontrouFinalArquivo:
             mov rax, _seek
             mov rdi, [rbp-24]
             mov rsi, 8
             neg rsi
+            xor rdx, rdx
             mov rdx, 1
             syscall
-
+            
             mov rax, _write
             mov rdi, [rbp-24]
             lea rsi, [ponteiroBlocosLimpos]
             mov rdx, 8
             syscall
-
+           
             mov rax, [rbp-40]
             mov [ponteiroBlocosLimpos], rax
 
@@ -674,6 +770,7 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long 
 	mov rbp, rsp    
     
     sub rsp, 32
+    
     mov rax, [rdi]
     mov [rbp-8], rax
     mov [rbp-16], rsi
@@ -708,7 +805,8 @@ carregaDiretorio:  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long 
         add rsi, r8
         mov rdx, [rbp-32]
         syscall                             		; Armazena o bloco na pilha
-        
+        teste:
+
 		mov rbx, [ponteiroRaiz]
 		mov [ponteiroDiretorioAtualNoDispositivo], rbx	; Armazena o ponteiro para o diretório atual no dispositivo, para relizar operações
         mov rax, rsp   		                            ; Salva o ponteiro para o diretório na memória
@@ -1338,7 +1436,7 @@ atualizaDispositivos: ; long atualizaDispositivos(long *ponteiroDispositivo[rdi]
     syscall
 
     mov rax, _open
-    mov rdi, [argc]
+    mov rdi, [ponteiroDispositivoNoSistema]
     mov rsi, readwrite
     mov rdx, userWR
     syscall
