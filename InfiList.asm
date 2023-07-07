@@ -58,33 +58,33 @@ section .data
 	
 	trintaDois	: dq 32
 	; moldura para print
-	primeiraLinha	: db "|", 0x09, "Nome", 0x09, 0x09, "|", 0x20, "Tipo", 0x20, "|", 0x09, "Tamanho", 0x09, 0x09, "|", 10 ,0 
-	primeiraLinhaL	: equ $-primeiraLinha
+	primeiraLinha	: db "|", 0x20, "Nome", 0x20, 0x20, "|", 0x20, "Tipo", 0x20, "|", 0x09, "Tamanho", 0x09, 0x09, "|", 10 ,0 
+	;primeiraLinhaL	: equ $-primeiraLinha
 	
 	inicioLinha		: db "|", 0x20, 0
-	inicioLinhaL	: equ $-inicioLinha
+	;inicioLinhaL	: equ $-inicioLinha
 	
 	finalLinha		: db "|", 0x0a, 0
-	finalLinhaL	    : equ $-finalLinha
+	;finalLinhaL		: equ $-finalLinha
 	
 	espacoDivisor	: db 0x20, "|", 0x20, 0
-	espacoDivisorL	: equ $-espacoDivisor
+	;espacoDivisorL	: equ $-espacoDivisor
 	
 	typeDir		: db "DIR", 0x20, 0
 	typeArch	: db "ARCH", 0
 	typeSize	: db 4
 	
 	typeFinish		: db 0x20, "|", 0x09, 0
-	typeFinishL	: equ $-typeFinish
+	typeFinishL		: equ $-typeFinish
 	
 	dirSizeChar	: db "-------", 0x09, 0x09, "|", 10, 0
 	dirSizeCharL	: equ $-dirSizeChar
 	
 	archFinish		: db 0x09, "|", 10, 0
-	archFinishL	: equ $-archFinish
+	archFinishL		: equ $-archFinish
 
     testeArquivo    : db "./teste.txt", 0
-    testeArquivoL   : equ $-testeArquivo 
+    ;testeArquivoL   : equ $-testeArquivo 
 	
 	testeChars		: db "test.txt",0
 
@@ -159,7 +159,7 @@ _start:
     ;call formatacao             ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
     ;%include "popall.asm"
 
-
+	teste4:
     %include "pushall.asm"
     mov rdi, [ponteiroDispositivoNoSistema]
     lea rsi, [tamanhoBloco]
@@ -167,11 +167,12 @@ _start:
     lea rcx, [ponteiroBlocosLimpos]
     lea r8, [tamanhoArmazenamento]
     lea r9, [quantidadeBlocos]
+	teste3:
     call iniciarSistema         ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
     mov [ponteiroDispositivo], rax
     %include "popall.asm"
 
-
+	
     %include "pushall.asm"
     lea rdi, [ponteiroDispositivo]
     xor rsi, rsi
@@ -180,7 +181,15 @@ _start:
     call carregaDiretorio  ; long carregaDiretorio(long *ponteiroDispositivo[rdi], long modo[rsi], long *ponteiroDiretorio[rdx], long *tamanhoBloco[rcx]) retorna o ponteiro onde termina o diretório armazenado em pilha
     %include "popall.asm"
     mov rsp, [ponteiroDiretorioAtual]
-    pause:
+	
+	
+	%include "pushall.asm"
+	lea rdi, [ponteiroDiretorioAtual]
+	lea rsi, [tamanhoDiretorioAtual]
+	xor rdx, rdx
+	call imprimeDiretorio  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi], long *tamanhoDiretorio[rsi], long modo[rdx])
+	%include "popall.asm"
+    
 
 ;    %include "pushall.asm"
 ;    mov rax, _seek
@@ -390,8 +399,10 @@ formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBlo
 
 iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanhoBloco[rsi], long *ponteiroRaiz[rdx], long *ponteiroBlocosLimpos[rcx], long *tamanhoArmazenamento[r8], long *quantidadeBlocos[r9])
     push rbp
+	teste1:
 	mov rbp, rsp
-    
+    teste2:
+	
     sub rsp, 40
     mov [rbp-8], rsi
     mov [rbp-16], rdx
@@ -457,7 +468,9 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
     
 
     mov rax, [rbp-48]           ; Retorno do ponteiro do arquivo  
-
+	
+	teste:
+	
     mov rsp, rbp
     pop rbp
     ret
@@ -488,7 +501,8 @@ iniciarSistema:     ; *FILE iniciarSistema(long *dispositivo[rdi], long *tamanho
 
     xor rax, rax
     dec rax
-
+	
+	
     mov rsp, rbp
     pop rbp
     ret
@@ -642,7 +656,7 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
     mov [rbp-24], rdx
 
     xor r15, r15
-
+	
    	mov rax, _write
 	mov rdi, 1
 	lea rsi, [limpaTerminal]		
@@ -653,14 +667,81 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
     cmp [rbp-24], rbx
     jne modoImpressaoSubdiretorio
 
-
+	
     modoImpressaoRaiz:
+		mov r15, [rbp-8]
+		xor r14, r14
+		
+		mov rax, [rbp-16]
+		mov r13, 64
+		div r13
+		mov r13, rax					; Quantidade de entradas
+		
+		lacoImpressaoRaiz:
+			mov r12, r14
+			mov cl, [r15+r12]
+			add r12, 20
+			cmp cl, 0
+			je proximaEntradaRaiz
+			mov cl, [r15+r12]
+			cmp cl, 0
+			jne  proximaEntradaRaiz
+			
+			sub r12, 20
+			
+			mov rax, _write
+			mov rdi, 1
+			;mov rsi, [inicioLinha]
+			;mov rdx, inicioLinhaL
+			syscall
+			
+			mov rax, _write
+			mov rdi, 1
+			mov rsi, [r15+r12]
+			mov rdx, 16
+			syscall
+			
+			add r12, 16
+			
+			
+			mov rax, _write
+			mov rdi, 1
+			;mov rsi, [espacoDivisor]
+			;mov rdx, espacoDivisorL
+			syscall
+			
+			mov rax, _write
+			mov rdi, 1
+			mov rsi, [r15+r12]
+			mov rdx, 3
+			syscall
+			
+			mov rax, _write
+			mov rdi, 1
+			;mov rsi, [finalLinha]
+			;mov rdx, finalLinhaL
+			syscall
+			
+			;mov rax, _write
+			;mov rdi, 1
+			;mov rsi, [inicioLinha]
+			;mov rdx, inicioLinhaL
+			;syscall
+			
+			;mov rax, _write
+			;mov rdi, 1
+			;mov rsi, [inicioLinha]
+			;mov rdx, inicioLinhaL
+			;syscall
 
-
+		proximaEntradaRaiz:
+			add r14, 64
+			cmp r14, [rbp-16]
+			je fimImpressaoDiretorio
 
     modoImpressaoSubdiretorio:
 
-
+	fimImpressaoDiretorio:
 
     mov rsp, rbp
     pop rbp
