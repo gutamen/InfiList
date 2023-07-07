@@ -66,7 +66,7 @@ section .data
 	
 	; moldura para print
 	
-	primeiraLinha	: db "|", 0x20, "Número", 0x20, "|", 0x20, "Nome", 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, "|", "Exten", "|", 0x20, "Tamanho",  10, 0
+	primeiraLinha	: db "|", 0x20, "Número", 0x20, "|", 0x20, "Nome", 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, "|", " Extensão ", "|", 0x20, "Tamanho",  10, 0
 	primeiraLinhaL	: equ $-primeiraLinha
 	
 	inicioLinha		: db "|", 0x20, 0
@@ -77,6 +77,9 @@ section .data
 	
 	espacoDivisor	: db 0x20, "|", 0x20, 0
 	espacoDivisorL	: equ $-espacoDivisor
+
+    espacamento     : db 0x20, 0x20, 0x20, 0x20, 0x20, 0
+    espacamentoL    : equ $-espacamento
 	
 	typeDir		: db "DIR", 0x20, 0
 	typeArch	: db "ARCH", 0
@@ -280,6 +283,125 @@ _end:
 
 %include "converteParaCaractereNoTerminal.asm"
 
+excluiArquivoDoSistema: ; void excluiArquivoDoSistema(long tagArquivo[rdi], long *ponteiroDiretorio[rsi], long *ponteiroDispositivo[rdx], long modo[rcx])
+    push rbp
+	mov rbp, rsp
+    sub rsp, 32
+    mov [rbp-8], rdi
+    mov rax, [rsi]
+    mov [rbp-16], rax
+    mov rbx, [rdx]
+    mov [rbp-24], rbx
+    mov [rbp-32], rcx
+    
+    jecxz excluiArquivoDoSistemaRaiz
+
+
+    excluiArquivoDoSistemaSubdiretorio:
+    
+    
+    excluiArquivoDoSistemaRaiz:
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, [rbp-16]
+        xor rdx, rdx
+        syscall
+
+        mov rax, [rbp-8]
+        xor rdx, rdx
+        mov rbx, 64
+        
+        mul rbx
+        
+        mov rsi, rax
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        xor rdx, rdx
+        inc rdx
+        syscall
+
+        sub rsp, 64
+
+        mov rax, _read
+        mov rdi, [rbp-24]
+        mov rsi, rbp
+        sub rsi, 96
+        mov rdx, 64
+        syscall
+
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, 44
+        neg rsi
+        xor rdx, rdx
+        inc rdx
+        syscall
+
+        mov BYTE[buffer], 0xFF
+
+        mov rax, _write
+        mov rdi, [rbp-24]
+        lea rsi, [buffer]
+        mov rdx, 1
+        syscall
+
+        mov rax, _seek
+        mov rdi, [rbp-24]
+        mov rsi, [rbp-40]
+        xor rdx, rdx
+        syscall
+        
+        mov r15, [tamanhoBloco]
+        sub r15, 8
+        ;sub rsp, r15
+
+        xor rbx, rbx
+        dec rbx
+
+        procuraFinalDoArquivoParaExclusao:
+            mov rax, _seek
+            mov rdi, [rbp-24]
+            mov rsi, r15
+            mov rdx, 1
+            syscall
+
+            mov rax, _read
+            mov rdi, [rbp-24]
+            lea rsi, [buffer]
+            mov rdx, 8
+
+
+            cmp [buffer], rbx
+            je encontrouFinalArquivo
+
+        encontrouFinalArquivo:
+            mov rax, _seek
+            mov rdi, [rbp-24]
+            mov rsi, 8
+            neg rsi
+            mov rdx, 1
+            syscall
+
+            mov rax, _write
+            mov rdi, [rbp-24]
+            lea rsi, [ponteiroBlocosLimpos]
+            mov rdx, 8
+            syscall
+
+            mov rax, [rbp-40]
+            mov [ponteiroBlocosLimpos], rax
+
+            jmp arquivoRemovidoComSucesso
+
+        
+
+
+
+    arquivoRemovidoComSucesso:
+
+    mov rsp, rbp
+	pop rbp
+	ret
 
 formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBloco[rsi], int quantidadeBlocos[rdx])
 	
@@ -751,12 +873,10 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
 			xor rdx, rdx
 			inc rdx
 			xor rcx, rcx
-			inc rcx
-			inc rcx
-			inc rcx
-			inc rcx
+			mov rcx, 6
 			call converteParaCaractereNoTerminal ; long converteParaCaractereNoTerminal( long valorParaConverter[rdi], long *ponteiroStringCovertida[rsi], long modo[rdx], <long quantosImprime[rcx]>) retorna o tamanho que a string de caracteres ficou
 			%include "popall.asm"
+
 			
 			mov rax, _write
 			mov rdi, 1
@@ -783,6 +903,12 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
 			mov rdi, 1
 			lea rsi, [r15+r12]
 			mov rdx, 3
+			syscall
+
+            mov rax, _write
+			mov rdi, 1
+			lea rsi, [espacamento]
+			mov rdx, espacamentoL
 			syscall
 			
 			mov rax, _write
@@ -821,6 +947,11 @@ imprimeDiretorio:  ; void imprimeDiretorio(long *ponteiroDiretorioNaMemoria[rdi]
     mov rsp, rbp
     pop rbp
     ret
+
+
+
+
+
 
 copiaParaDentro: ; long copiaParaDentro(char *arquivoParaCopiar[rdi], long *pastaAtual[rsi], long *ponteiroDispositivo[rdx], long *ponteiroBlocosLimpos[rcx]) 
     push rbp

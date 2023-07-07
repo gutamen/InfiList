@@ -7,7 +7,8 @@ converteParaCaractereNoTerminal: ; long converteParaCaractereNoTerminal( long va
 	;mov [rbp-16], rsi
 	mov r15, rsi
 	mov [rbp-24], rdx
-	mov [rbp-32], rcx	
+	mov [rbp-32], rcx
+    dec QWORD[rbp-32]
 	
 	
 	mov rax, [rbp-8]
@@ -27,7 +28,7 @@ converteParaCaractereNoTerminal: ; long converteParaCaractereNoTerminal( long va
 	fimCaraceteres:
 		add rax, 48
 		mov [r15 + r11], al
-		inc r11
+		;inc r11
 
 	
 	mov rax, r11
