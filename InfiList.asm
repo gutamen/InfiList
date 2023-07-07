@@ -108,25 +108,25 @@ section .data
 section .bss
     
 
-    tamanhoBloco            : resq 1 
-    ponteiroRaiz            : resq 1
-    ponteiroBlocosLimpos    : resq 1
-    tamanhoArmazenamento    : resq 1
-    quantidadeBlocos        : resb 6
+    tamanhoBloco                        : resq 1 
+    ponteiroRaiz                        : resq 1
+    ponteiroBlocosLimpos                : resq 1
+    tamanhoArmazenamento                : resq 1
+    quantidadeBlocos                    : resb 6
 
 	ponteiroDiretorioAtualNoDispositivo	: resq 1
     ponteiroDiretorioAtual  		    : resq 1
     tamanhoDiretorioAtual   		    : resq 1
 
-    ponteiroDispositivo             : resq 1
-    argv                            : resq 1
-    argc                            : resq 1
-    buffer                          : resq 1  
-    ponteiroDispositivoNoSistema    : resq 1
-    ponteiroPilhaAntigo             : resq 1
+    ponteiroDispositivo                 : resq 1
+    argv                                : resq 1
+    argc                                : resq 1
+    buffer                              : resq 1  
+    ponteiroDispositivoNoSistema        : resq 1
+    ponteiroPilhaAntigo                 : resq 1
 
-	bufferCaracteres    : resb 512
-    bufferTeclado       : resb 512
+	bufferCaracteres                    : resb 512
+    bufferTeclado                       : resb 512
 
 section .text
 
@@ -616,8 +616,7 @@ formatacao: ;int[rax] formatacao(long *ponteiroDispositivo[rdi], long tamanhoBlo
     
 
     mov rax, _open
-    ;mov rdi, rdi
-    mov rsi, readwrite
+    mov rsi, openrw
     mov rdx, userWR
     syscall
 
